@@ -88,6 +88,50 @@
             </div>
 
             <div class="card settings-card">
+                <div class="card-header settings-header-flex">
+                    <div class="settings-header-title">
+                        <h2>User Account Portal (/sub)</h2>
+                        <p>Allow clients to view subscription details, data usage, and manage passwords</p>
+                    </div>
+                    <label class="switch-toggle-lg">
+                        <input type="checkbox" id="subPortalToggle" {% if sub_portal_enabled %}checked{% endif %} onchange="onSubPortalToggleChange(this)">
+                        <span class="switch-slider"></span>
+                    </label>
+                </div>
+                <div class="card-body">
+                    <div class="settings-status-box">
+                        <div class="settings-status-info">
+                            <div class="settings-status-text">
+                                <div class="settings-status-title" id="subPortalStatusTitle">
+                                    {% if sub_portal_enabled %}Portal Active & Accessible{% else %}Portal Disabled (404 Not Found){% endif %}
+                                </div>
+                                <div class="settings-status-desc" id="subPortalStatusSub">
+                                    {% if sub_portal_enabled %}Users can log in at the portal address with their VPN credentials.{% else %}Access to /sub is blocked.{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <span id="subPortalStatusPill" class="status-pill {% if sub_portal_enabled %}status-active{% else %}status-disabled{% endif %}">
+                            <span class="status-dot"></span>
+                            <span id="subPortalStatusPillText">{% if sub_portal_enabled %}Active{% else %}Disabled{% endif %}</span>
+                        </span>
+                    </div>
+
+                    <div style="margin-top: 1rem; background: var(--bg-surface); border: 1px solid var(--border-dark); border-radius: var(--radius-md); padding: 0.75rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+                        <div style="display: flex; flex-direction: column; gap: 0.2rem; min-width: 0;">
+                            <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Portal URL</span>
+                            <span id="subPortalUrlText" style="font-family: var(--font-mono); font-size: 0.88rem; font-weight: 700; color: var(--accent-cyan); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ sub_portal_url }}</span>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-icon" onclick="copySubPortalUrl(this)" title="Copy Portal URL" aria-label="Copy Portal URL" style="flex-shrink: 0;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card settings-card">
                 <div class="card-header">
                     <h2>Admin Security & Panel Access</h2>
                     <p>Manage administrator credentials and web panel access path</p>
@@ -557,6 +601,59 @@
                 pill.className = 'status-pill ' + (isEnabled ? 'status-active' : 'status-disabled');
                 pill.innerHTML = `<span class="status-dot"></span><span id="vpnStatusPillText">${isEnabled ? 'Online' : 'Stopped'}</span>`;
             }
+        }
+
+        async function onSubPortalToggleChange(checkbox) {
+            checkbox.disabled = true;
+            try {
+                const response = await fetch(`${BASE_PATH}/settings/toggle-sub-portal`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const res = await response.json();
+                if (res.success) {
+                    checkbox.checked = res.sub_portal_enabled;
+                    updateSubPortalUI(res.sub_portal_enabled);
+                    showToast(res.message, res.sub_portal_enabled ? 'success' : 'warning', 3000);
+                } else {
+                    throw new Error(res.error || 'Failed to toggle portal');
+                }
+            } catch (err) {
+                checkbox.checked = !checkbox.checked;
+                updateSubPortalUI(checkbox.checked);
+                showToast(err.message || 'Connection error with server.', 'error');
+            } finally {
+                checkbox.disabled = false;
+            }
+        }
+
+        function updateSubPortalUI(isEnabled) {
+            const title = document.getElementById('subPortalStatusTitle');
+            const sub = document.getElementById('subPortalStatusSub');
+            const pill = document.getElementById('subPortalStatusPill');
+
+            if (title) title.innerText = isEnabled ? 'Portal Active & Accessible' : 'Portal Disabled (404 Not Found)';
+            if (sub) sub.innerText = isEnabled ? 'Users can log in at the portal address with their VPN credentials.' : 'Access to /sub is blocked.';
+            if (pill) {
+                pill.className = 'status-pill ' + (isEnabled ? 'status-active' : 'status-disabled');
+                pill.innerHTML = `<span class="status-dot"></span><span id="subPortalStatusPillText">${isEnabled ? 'Active' : 'Disabled'}</span>`;
+            }
+        }
+
+        function copySubPortalUrl(btn) {
+            const el = document.getElementById('subPortalUrlText');
+            if (!el) return;
+            const text = el.innerText.trim();
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = btn.innerHTML;
+                btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+                showToast('Portal URL copied to clipboard!', 'success', 2000);
+                setTimeout(() => { btn.innerHTML = orig; }, 1500);
+            });
         }
 
         function openCredentialsModal() {

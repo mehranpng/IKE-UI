@@ -15,7 +15,7 @@ import string
 import io
 import tempfile
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, stream_with_context, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, stream_with_context, send_file, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
@@ -1314,6 +1314,9 @@ def get_user_info_api(user_id):
 @app.route("/sub", methods=["GET"])
 @limiter.limit("1/second; 60/minute")
 def sub_portal():
+    if get_system_config("sub_portal_enabled", "1") != "1":
+        abort(404)
+
     sub_id = session.get("sub_user_id")
     sub_user = session.get("sub_username")
     sub_pass = session.get("sub_password")
@@ -1359,6 +1362,9 @@ def sub_portal():
 @app.route("/sub/login", methods=["POST"])
 @limiter.limit("1/second; 10/minute")
 def sub_login():
+    if get_system_config("sub_portal_enabled", "1") != "1":
+        abort(404)
+
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json or request.accept_mimetypes.best == "application/json"
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "").strip()
@@ -1403,6 +1409,9 @@ def sub_login():
 @app.route("/sub/logout", methods=["GET", "POST"])
 @limiter.limit("1/second")
 def sub_logout():
+    if get_system_config("sub_portal_enabled", "1") != "1":
+        abort(404)
+
     username = session.get("sub_username", "")
     clear_sub_session()
     if username:
@@ -1413,16 +1422,18 @@ def sub_logout():
 @sub_login_required
 @limiter.limit("1/second; 10/minute")
 def sub_change_password():
+    if get_system_config("sub_portal_enabled", "1") != "1":
+        abort(404)
+
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json or request.accept_mimetypes.best == "application/json"
     sub_id = session.get("sub_user_id")
     sub_user = session.get("sub_username")
 
-    curr_pass = request.form.get("current_password", "").strip()
     new_pass = request.form.get("new_password", "").strip()
     confirm_pass = request.form.get("confirm_password", "").strip()
 
-    if not curr_pass or not new_pass or not confirm_pass:
-        msg = "All password fields are required!"
+    if not new_pass or not confirm_pass:
+        msg = "New password and confirmation are required!"
         if is_ajax:
             return jsonify({"success": False, "error": msg}), 400
         flash(msg, "danger")
@@ -1452,17 +1463,6 @@ def sub_change_password():
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, username, password FROM users WHERE id = ?", (sub_id,))
-        user = cursor.fetchone()
-
-        if not user or user["password"] != curr_pass:
-            conn.close()
-            msg = "Current password is incorrect!"
-            if is_ajax:
-                return jsonify({"success": False, "error": msg}), 400
-            flash(msg, "danger")
-            return redirect(url_for("sub_portal"))
-
         cursor.execute("UPDATE users SET password = ? WHERE id = ?", (new_pass, sub_id))
         conn.commit()
         conn.close()
@@ -2008,7 +2008,10 @@ def settings():
         return update_credentials()
 
     vpn_status = (get_system_config("vpn_enabled", "1") == "1")
+    sub_portal_status = (get_system_config("sub_portal_enabled", "1") == "1")
     cur_path = get_system_config("panel_path", "")
+    server_domain = get_system_config("server_domain", SERVER_DOMAIN)
+    sub_portal_url = f"https://{server_domain}/sub"
     try:
         session_timeout = int(get_system_config("admin_session_timeout", "4320"))
         session_timeout = max(1, min(43200, session_timeout))
@@ -2019,6 +2022,9 @@ def settings():
     return render_template(
         "settings.html",
         vpn_enabled=vpn_status,
+        sub_portal_enabled=sub_portal_status,
+        sub_portal_url=sub_portal_url,
+        server_domain=server_domain,
         panel_path=cur_path,
         session_timeout=session_timeout,
         session_timeout_formatted=session_timeout_formatted
@@ -2219,6 +2225,25 @@ def toggle_vpn_service():
         return jsonify({
             "success": True,
             "vpn_enabled": new_status,
+            "message": msg
+        })
+    flash(msg, "success" if new_status else "warning")
+    return redirect(url_for("settings"))
+
+@app.route("/settings/toggle-sub-portal", methods=["POST"])
+@login_required
+def toggle_sub_portal():
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.best == "application/json"
+    current_status = (get_system_config("sub_portal_enabled", "1") == "1")
+    new_status = not current_status
+    set_system_config("sub_portal_enabled", "1" if new_status else "0")
+
+    status_text = "enabled" if new_status else "disabled"
+    msg = f"User Account Portal (/sub) is now {status_text}."
+    if is_ajax:
+        return jsonify({
+            "success": True,
+            "sub_portal_enabled": new_status,
             "message": msg
         })
     flash(msg, "success" if new_status else "warning")

@@ -67,13 +67,10 @@ ike-ui update    # Update IKE-UI
 
 ### User Account Portal (`/sub`)
 
-IKE-UI includes a built-in user portal accessible at `/sub` (e.g., `https://vpn.example.com/sub` or `https://vpn.example.com/sub?u=username`):
-
-- **Query Parameter Auto-Fill:** Opening `/sub?u=username` automatically pre-fills the username field on the login screen.
-- **Account Overview:** Users can log in with their VPN credentials to view their active subscription, data usage quota, expiration date, and simultaneous device limits.
-- **Live Connection & IP Monitoring:** Displays real-time online status, active connected device IPs, and last connected IP.
-- **Self-Service Password Management:** Users can change their own VPN password (up to 24 characters). Changing the password automatically terminates active VPN sessions, expires the current portal session, and redirects back to the login screen with the username prefilled.
-- **Security & Rate Limiting:** All portal endpoints are protected with IP-based rate limiting (1 req/s burst, 10 req/min login & password change, 60 req/min data load) and an automatic 3-day session expiration.
+A built-in self-service portal at `https://domain.com/sub` (supports `?u=username` auto-fill):
+- **Account Dashboard:** View live connection state, active client IPs, data consumption, and validity.
+- **Self-Service:** Change VPN passwords (up to 24 chars) and view native client setup guides.
+- **Security:** Built-in rate limiting, 3-day session lifetime, and toggle control in admin settings.
 
 ---
 

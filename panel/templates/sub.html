@@ -169,8 +169,6 @@
             padding-right: 2.5rem;
         }
         .pwd-toggle-btn {
-            position: absolute;
-            right: 8px;
             background: transparent;
             border: none;
             color: var(--text-muted);
@@ -196,6 +194,118 @@
         }
         .conn-item-box:last-child {
             margin-bottom: 0;
+        }
+
+        /* Guide Tabs */
+        .guide-tabs {
+            display: flex;
+            gap: 0.5rem;
+            border-bottom: 1.5px solid var(--border-dark);
+            margin-bottom: 1.25rem;
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
+        }
+        .guide-tab-btn {
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: var(--text-secondary);
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 0.88rem;
+            padding: 0.5rem 0.85rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .guide-tab-btn:hover {
+            color: var(--text-primary);
+        }
+        .guide-tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+        .guide-tab-content {
+            display: none;
+        }
+        .guide-tab-content.active {
+            display: block;
+        }
+        .guide-step-list {
+            list-style: none;
+            counter-reset: guide-step;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .guide-step-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: var(--text-secondary);
+        }
+        .guide-step-num {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-dark);
+            border-radius: var(--radius-sm);
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-weight: 800;
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .guide-step-body {
+            flex: 1;
+            min-width: 0;
+        }
+        .guide-step-body strong {
+            color: var(--text-primary);
+        }
+        .guide-code-box {
+            background: #0d0f18;
+            border: 1px solid var(--border-dark);
+            border-radius: var(--radius-md);
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            position: relative;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: #d1d5db;
+            word-break: break-all;
+            line-height: 1.4;
+        }
+        .guide-code-copy {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: #1a1d2d;
+            border: 1px solid var(--border-dark);
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 3px 6px;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            transition: all 0.15s;
+        }
+        .guide-code-copy:hover {
+            color: #ffffff;
+            background: #252a40;
         }
     </style>
 </head>
@@ -233,7 +343,7 @@
                     <label for="subPassword">Password</label>
                     <div class="pwd-toggle-wrap">
                         <input type="password" id="subPassword" name="password" placeholder="••••••••" {% if prefilled_username %}autofocus{% endif %} autocomplete="current-password">
-                        <button type="button" class="pwd-toggle-btn" onclick="toggleSubLoginPassVisibility()" title="Show/Hide Password" aria-label="Toggle password visibility">
+                        <button type="button" class="pwd-toggle-btn" style="position: absolute; right: 8px;" onclick="toggleSubLoginPassVisibility()" title="Show/Hide Password" aria-label="Toggle password visibility">
                             <svg id="subPassEyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                                 <circle cx="12" cy="12" r="3"/>
@@ -331,6 +441,12 @@
             </div>
 
             <div class="nav-actions">
+                <button type="button" class="btn btn-secondary btn-icon" onclick="openSubChangePasswordModal()" title="Change Password">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                    </svg>
+                    <span>Change Password</span>
+                </button>
                 <button type="button" class="btn-refresh" id="btnSubRefresh" onclick="refreshSubPage()" title="Refresh Data">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="23 4 23 10 17 10"/>
@@ -425,7 +541,6 @@
                                     </div>
                                     <div class="device-chip-ip">
                                         Client IP: <span style="color: var(--accent-cyan);">{{ dev.client_ip or '--' }}</span>
-                                        {% if dev.vip %} | VIP: <span style="color: var(--primary);">{{ dev.vip }}</span>{% endif %}
                                     </div>
                                     <div style="display: flex; gap: 0.75rem; color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.15rem;">
                                         <span>↓ {{ dev.bytes_down }}</span>
@@ -453,15 +568,17 @@
                         </span>
                     </div>
 
-                    <div style="margin: 0.5rem 0 1rem 0;">
-                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700; margin-bottom: 0.4rem;">
-                            <span style="color: var(--text-secondary);">Quota Usage</span>
-                            <span>{{ user.traffic_percent }}%</span>
+                    {% if user.max_traffic_gb and user.max_traffic_gb > 0 %}
+                        <div style="margin: 0.5rem 0 1rem 0;">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700; margin-bottom: 0.4rem;">
+                                <span style="color: var(--text-secondary);">Quota Usage</span>
+                                <span>{{ user.traffic_percent }}%</span>
+                            </div>
+                            <div class="progress-track" style="height: 10px; border-radius: 5px;">
+                                <div class="progress-bar {% if user.traffic_percent > 90 %}progress-danger{% elif user.traffic_percent > 70 %}progress-warning{% endif %}" style="width: {{ user.traffic_percent }}%;"></div>
+                            </div>
                         </div>
-                        <div class="progress-track" style="height: 10px; border-radius: 5px;">
-                            <div class="progress-bar {% if user.traffic_percent > 90 %}progress-danger{% elif user.traffic_percent > 70 %}progress-warning{% endif %}" style="width: {{ user.traffic_percent }}%;"></div>
-                        </div>
-                    </div>
+                    {% endif %}
 
                     <div class="sub-info-row">
                         <span class="sub-info-label">Used Traffic</span>
@@ -512,10 +629,6 @@
                         <span class="sub-info-label">Account Created</span>
                         <span class="sub-info-val" style="font-size: 0.82rem;">{{ user.created_at or '--' }}</span>
                     </div>
-                    <div class="sub-info-row">
-                        <span class="sub-info-label">Note</span>
-                        <span class="sub-info-val" style="font-size: 0.82rem; font-weight: 500;">{{ user.note or 'No notes' }}</span>
-                    </div>
                 </div>
 
                 <!-- Connection Settings / Quick Config Card -->
@@ -555,9 +668,19 @@
                     <div class="conn-item-box">
                         <div>
                             <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">PASSWORD</div>
-                            <div style="font-family: var(--font-mono); font-weight: 700; color: var(--accent-yellow);" id="subPassVal">{{ user.password }}</div>
+                            <div style="font-family: var(--font-mono); font-weight: 700; color: var(--accent-yellow);">
+                                <span id="subPassMasked">••••••••</span>
+                                <span id="subPassPlain" style="display: none;">{{ user.password }}</span>
+                                <span id="subPassVal" style="display: none;">{{ user.password }}</span>
+                            </div>
                         </div>
-                        <div style="display: flex; gap: 0.3rem;">
+                        <div style="display: flex; gap: 0.35rem; align-items: center;">
+                            <button type="button" class="pwd-toggle-btn" onclick="toggleSubCredPassVisibility()" title="Show/Hide Password">
+                                <svg id="subCredEyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
                             <button type="button" class="btn-copy-field" onclick="copyFieldValue('subPassVal', this)" title="Copy Password">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                             </button>
@@ -571,53 +694,235 @@
                 </div>
             </div>
 
-            <!-- Change Password Card -->
+            <!-- Connection Guide / Setup Tutorials Card -->
             <div class="card" style="margin-top: 1.5rem;">
                 <div class="card-header">
-                    <h2>Change Account Password</h2>
-                    <p>Update your VPN credentials. Maximum allowed password length is 24 characters.</p>
+                    <h2>Connection Setup Tutorials</h2>
+                    <p>Native IKEv2 / IPsec setup instructions for all devices with your active credentials</p>
                 </div>
                 <div class="card-body">
-                    <div id="changePwdAlertBox"></div>
-
-                    <form id="changePasswordForm" novalidate onsubmit="return handleSubChangePassword(event)" style="max-width: 500px;">
-                        <div class="form-group">
-                            <label for="subCurrentPassword">Current Password</label>
-                            <input type="password" id="subCurrentPassword" name="current_password" placeholder="Enter current password" autocomplete="current-password">
-                        </div>
-
-                        <div class="form-group">
-                            <div class="label-row">
-                                <label for="subNewPassword">New Password</label>
-                                <div style="display: flex; align-items: center; gap: 0.6rem;">
-                                    <span class="char-counter" id="newPassCharCount">0 / 24</span>
-                                    <button type="button" class="btn-text-action" onclick="generateSubPassword()">
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                                        Generate
-                                    </button>
-                                </div>
-                            </div>
-                            <input type="text" id="subNewPassword" name="new_password" maxlength="24" placeholder="New password (max 24 chars)" autocomplete="new-password" oninput="updateCharCounter(this)">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="subConfirmPassword">Confirm New Password</label>
-                            <input type="text" id="subConfirmPassword" name="confirm_password" maxlength="24" placeholder="Repeat new password" autocomplete="new-password">
-                        </div>
-
-                        <div style="background: rgba(255, 183, 3, 0.08); border: 1px solid rgba(255, 183, 3, 0.25); border-radius: var(--radius-md); padding: 0.75rem; margin-bottom: 1.25rem; font-size: 0.82rem; color: var(--warning); display: flex; gap: 0.5rem; align-items: flex-start;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                            <span>Changing your password will immediately disconnect any active VPN sessions and log you out. You will be redirected to sign in with your new password.</span>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary" id="btnSubmitChangePwd">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            Update Password & Sign Out
+                    <div class="guide-tabs">
+                        <button type="button" class="guide-tab-btn active" onclick="switchGuideTab('ios', this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20.94c1.88 0 3.05-.88 4.22-.88 1.14 0 2.13.88 4.08.88 2.05 0 3.7-1.74 3.7-3.79 0-2.33-1.63-3.66-1.63-5.26 0-1.61 1.34-2.83 1.34-4.52 0-2.45-2.02-4.45-4.47-4.45-1.57 0-2.87.87-3.87.87-.99 0-2.47-.87-4.04-.87-2.68 0-4.88 2.19-4.88 4.87 0 2.21 1.45 4.34 1.45 6.34 0 1.99-1.45 3.99-1.45 6.2 0 1.83 1.35 3.32 3.19 3.32.78 0 1.52-.31 2.36-.61z"/><path d="M12 2a4.4 4.4 0 0 0-1 3.5 3.8 3.8 0 0 0 3.5-1.5 3.8 3.8 0 0 0-2.5-2z"/></svg>
+                            iOS / macOS
                         </button>
-                    </form>
+                        <button type="button" class="guide-tab-btn" onclick="switchGuideTab('android', this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8z"/><line x1="8" y1="18" x2="8" y2="21"/><line x1="16" y1="18" x2="16" y2="21"/><line x1="8" y1="4" x2="10" y2="8"/><line x1="16" y1="4" x2="14" y2="8"/></svg>
+                            Android
+                        </button>
+                        <button type="button" class="guide-tab-btn" onclick="switchGuideTab('windows', this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg>
+                            Windows
+                        </button>
+                        <button type="button" class="guide-tab-btn" onclick="switchGuideTab('linux', this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                            Linux (nmcli)
+                        </button>
+                    </div>
+
+                    <!-- iOS / macOS Tab -->
+                    <div class="guide-tab-content active" id="guide-ios">
+                        <ul class="guide-step-list">
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">1</span>
+                                <div class="guide-step-body">
+                                    Go to <strong>Settings</strong> &gt; <strong>General</strong> &gt; <strong>VPN & Device Management</strong> &gt; <strong>VPN</strong>.
+                                </div>
+                            </li>
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">2</span>
+                                <div class="guide-step-body">
+                                    Tap <strong>Add VPN Configuration...</strong> and select Type: <strong>IKEv2</strong>.
+                                </div>
+                            </li>
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">3</span>
+                                <div class="guide-step-body">
+                                    Fill in configuration parameters:
+                                    <div style="margin-top: 0.4rem; font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-primary); line-height: 1.6;">
+                                        • Server: <span style="color: var(--accent-cyan);">{{ server_domain }}</span><br>
+                                        • Remote ID: <span style="color: var(--accent-cyan);">{{ server_domain }}</span><br>
+                                        • Local ID: <em>(Leave Empty)</em><br>
+                                        • User Authentication: <strong>Username</strong><br>
+                                        • Username: <span style="color: var(--primary);">{{ user.username }}</span><br>
+                                        • Password: <span style="color: var(--accent-yellow);">{{ user.password }}</span>
+                                    </div>
+                                </div>
+                            </li>
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">4</span>
+                                <div class="guide-step-body">
+                                    Tap <strong>Done</strong> and toggle the VPN switch to connect.
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Android Tab -->
+                    <div class="guide-tab-content" id="guide-android">
+                        <ul class="guide-step-list">
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">1</span>
+                                <div class="guide-step-body">
+                                    Open <strong>Settings</strong> &gt; <strong>Network & internet</strong> &gt; <strong>VPN</strong> (or search for VPN in Settings).
+                                </div>
+                            </li>
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">2</span>
+                                <div class="guide-step-body">
+                                    Tap <strong>+</strong> (Add VPN Profile) and choose Type: <strong>IKEv2/IPsec MSCHAPv2</strong>.
+                                </div>
+                            </li>
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">3</span>
+                                <div class="guide-step-body">
+                                    Fill in credentials:
+                                    <div style="margin-top: 0.4rem; font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-primary); line-height: 1.6;">
+                                        • Name: <strong>IKEv2 VPN</strong><br>
+                                        • Server address: <span style="color: var(--accent-cyan);">{{ server_domain }}</span><br>
+                                        • IPsec identifier: <span style="color: var(--accent-cyan);">{{ server_domain }}</span><br>
+                                        • Username: <span style="color: var(--primary);">{{ user.username }}</span><br>
+                                        • Password: <span style="color: var(--accent-yellow);">{{ user.password }}</span>
+                                    </div>
+                                </div>
+                            </li>
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">4</span>
+                                <div class="guide-step-body">
+                                    Save the profile and tap to connect.
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Windows Tab -->
+                    <div class="guide-tab-content" id="guide-windows">
+                        <ul class="guide-step-list">
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">1</span>
+                                <div class="guide-step-body">
+                                    If connecting through home/NAT routers, run once in <strong>Command Prompt (Admin)</strong> and restart Windows:
+                                    <div class="guide-code-box">
+                                        <button type="button" class="guide-code-copy" onclick="copySnippet(this)">Copy</button>
+                                        <code>reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\PolicyAgent" /v "AssumeUDPEncapsulationContextOnSendRule" /t REG_DWORD /d 2 /f</code>
+                                    </div>
+                                </div>
+                            </li>
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">2</span>
+                                <div class="guide-step-body">
+                                    Go to <strong>Settings</strong> &gt; <strong>Network & internet</strong> &gt; <strong>VPN</strong> &gt; <strong>Add VPN</strong>.
+                                </div>
+                            </li>
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">3</span>
+                                <div class="guide-step-body">
+                                    Set fields as follows:
+                                    <div style="margin-top: 0.4rem; font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-primary); line-height: 1.6;">
+                                        • VPN Provider: <strong>Windows (built-in)</strong><br>
+                                        • Connection Name: <strong>IKEv2 VPN</strong><br>
+                                        • Server name or address: <span style="color: var(--accent-cyan);">{{ server_domain }}</span><br>
+                                        • VPN Type: <strong>IKEv2</strong><br>
+                                        • Type of sign-in info: <strong>User name and password</strong><br>
+                                        • User name: <span style="color: var(--primary);">{{ user.username }}</span><br>
+                                        • Password: <span style="color: var(--accent-yellow);">{{ user.password }}</span>
+                                    </div>
+                                </div>
+                            </li>
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">4</span>
+                                <div class="guide-step-body">
+                                    Click <strong>Save</strong> and then click <strong>Connect</strong>.
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Linux Tab -->
+                    <div class="guide-tab-content" id="guide-linux">
+                        <ul class="guide-step-list">
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">1</span>
+                                <div class="guide-step-body">
+                                    Install NetworkManager StrongSwan plugin:
+                                    <div class="guide-code-box">
+                                        <button type="button" class="guide-code-copy" onclick="copySnippet(this)">Copy</button>
+                                        <code>sudo apt update &amp;&amp; sudo apt install -y network-manager-strongswan libcharon-extra-plugins libcharon-extauth-plugins</code>
+                                    </div>
+                                </div>
+                            </li>
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">2</span>
+                                <div class="guide-step-body">
+                                    Create connection profile with your credentials:
+                                    <div class="guide-code-box">
+                                        <button type="button" class="guide-code-copy" onclick="copySnippet(this)">Copy</button>
+                                        <code>nmcli connection add type vpn vpn-type strongswan con-name "IKEv2-VPN" vpn.data "address={{ server_domain }}, method=eap, user={{ user.username }}, certificate=/etc/ssl/certs/ISRG_Root_X1.pem, virtual=yes" vpn.secrets "password={{ user.password }}"</code>
+                                    </div>
+                                </div>
+                            </li>
+                            <li class="guide-step-item">
+                                <span class="guide-step-num">3</span>
+                                <div class="guide-step-body">
+                                    Start the VPN connection:
+                                    <div class="guide-code-box">
+                                        <button type="button" class="guide-code-copy" onclick="copySnippet(this)">Copy</button>
+                                        <code>nmcli connection up "IKEv2-VPN"</code>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content" style="max-width: 460px;">
+            <div class="modal-header">
+                <h3>Change Account Password</h3>
+                <button class="btn-close" onclick="closeSubChangePasswordModal()">&times;</button>
+            </div>
+            <form id="changePasswordForm" novalidate onsubmit="return handleSubChangePassword(event)">
+                <div class="modal-body">
+                    <div id="changePwdAlertBox"></div>
+
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label for="subNewPassword">New Password</label>
+                            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                <span class="char-counter" id="newPassCharCount">0 / 24</span>
+                                <button type="button" class="btn-text-action" onclick="generateSubPassword()">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                                    Generate
+                                </button>
+                            </div>
+                        </div>
+                        <input type="text" id="subNewPassword" name="new_password" maxlength="24" placeholder="Enter new password (max 24 chars)" autocomplete="new-password" oninput="updateCharCounter(this)" autofocus>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="subConfirmPassword">Confirm New Password</label>
+                        <input type="text" id="subConfirmPassword" name="confirm_password" maxlength="24" placeholder="Repeat new password" autocomplete="new-password">
+                    </div>
+
+                    <div style="background: rgba(255, 183, 3, 0.08); border: 1px solid rgba(255, 183, 3, 0.25); border-radius: var(--radius-md); padding: 0.75rem; font-size: 0.82rem; color: var(--warning); display: flex; gap: 0.5rem; align-items: flex-start;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <span>Updating your password will disconnect any active VPN connections and log you out. You will be redirected to sign in with your new credentials.</span>
+                    </div>
+                </div>
+
+                <div class="modal-footer" style="justify-content: space-between;">
+                    <button type="button" class="btn btn-secondary" onclick="closeSubChangePasswordModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="btnSubmitChangePwd">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        Update Password & Sign Out
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script>
@@ -647,6 +952,21 @@
             });
         }
 
+        function toggleSubCredPassVisibility() {
+            const masked = document.getElementById('subPassMasked');
+            const plain = document.getElementById('subPassPlain');
+            const eyeIcon = document.getElementById('subCredEyeIcon');
+            if (plain.style.display === 'none') {
+                masked.style.display = 'none';
+                plain.style.display = 'inline';
+                eyeIcon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+            } else {
+                masked.style.display = 'inline';
+                plain.style.display = 'none';
+                eyeIcon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+            }
+        }
+
         function copySubConnectionInfo() {
             const server = document.getElementById('subServerVal').innerText.trim();
             const username = document.getElementById('subUserVal').innerText.trim();
@@ -659,6 +979,57 @@
                 btnText.innerText = 'Copied! ✓';
                 setTimeout(() => { btnText.innerText = orig; }, 2000);
             });
+        }
+
+        function switchGuideTab(tabId, btn) {
+            document.querySelectorAll('.guide-tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.guide-tab-content').forEach(c => c.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            const target = document.getElementById(`guide-${tabId}`);
+            if (target) target.classList.add('active');
+        }
+
+        function copySnippet(btn) {
+            const codeBox = btn.closest('.guide-code-box');
+            if (!codeBox) return;
+            const codeEl = codeBox.querySelector('code');
+            if (!codeEl) return;
+            const text = codeEl.innerText.trim();
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = btn.innerText;
+                btn.innerText = 'Copied! ✓';
+                setTimeout(() => { btn.innerText = orig; }, 1800);
+            });
+        }
+
+        function openSubChangePasswordModal() {
+            const modal = document.getElementById('changePasswordModal');
+            if (modal) {
+                document.getElementById('changePasswordForm').reset();
+                document.getElementById('changePwdAlertBox').innerHTML = '';
+                document.getElementById('newPassCharCount').innerText = '0 / 24';
+                modal.style.display = 'flex';
+                document.body.classList.add('modal-open');
+                setTimeout(() => {
+                    const inp = document.getElementById('subNewPassword');
+                    if (inp) inp.focus();
+                }, 100);
+            }
+        }
+
+        function closeSubChangePasswordModal() {
+            const modal = document.getElementById('changePasswordModal');
+            if (modal) {
+                modal.style.display = 'none';
+                document.body.classList.remove('modal-open');
+            }
+        }
+
+        window.onclick = function(e) {
+            const modal = document.getElementById('changePasswordModal');
+            if (modal && e.target === modal) {
+                closeSubChangePasswordModal();
+            }
         }
 
         function updateCharCounter(input) {
@@ -692,14 +1063,9 @@
             const alertBox = document.getElementById('changePwdAlertBox');
             const submitBtn = document.getElementById('btnSubmitChangePwd');
 
-            const curPass = document.getElementById('subCurrentPassword').value;
-            const newPass = document.getElementById('subNewPassword').value;
-            const confPass = document.getElementById('subConfirmPassword').value;
+            const newPass = document.getElementById('subNewPassword').value.trim();
+            const confPass = document.getElementById('subConfirmPassword').value.trim();
 
-            if (!curPass) {
-                alertBox.innerHTML = '<div class="alert alert-danger">Current password is required!</div>';
-                return false;
-            }
             if (!newPass) {
                 alertBox.innerHTML = '<div class="alert alert-danger">New password cannot be empty!</div>';
                 return false;
