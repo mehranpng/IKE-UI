@@ -172,8 +172,8 @@ NGINX_EOF
         chunked_transfer_encoding off;
     }
 
-    location = /sub {
-        proxy_pass http://127.0.0.1:8000/sub;
+    location /sub {
+        proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -189,30 +189,14 @@ NGINX_EOF
         chunked_transfer_encoding off;
     }
 
-    location /sub/ {
-        proxy_pass http://127.0.0.1:8000/sub/;
+    location /static {
+        proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_set_header X-Forwarded-Port \$server_port;
         proxy_set_header X-Forwarded-Prefix "";
-
-        proxy_buffering off;
-        proxy_cache off;
-        proxy_read_timeout 86400s;
-        proxy_set_header Connection '';
-        proxy_http_version 1.1;
-        chunked_transfer_encoding off;
-    }
-
-    location /static/ {
-        proxy_pass http://127.0.0.1:8000/static/;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_set_header X-Forwarded-Port \$server_port;
     }
 
     location / {
@@ -1011,7 +995,19 @@ RENEW_EOF
         chmod +x /etc/letsencrypt/renewal-hooks/deploy/strongswan.sh
     fi
 
-    echo -e "${CYAN}[4/4] Restarting IKE-UI panel service...${NC}"
+    echo -e "${CYAN}[4/4] Updating Nginx configuration and restarting services...${NC}"
+    local cur_dom cur_port cur_path
+    cur_dom=$(get_current_domain)
+    cur_port=$(get_current_port)
+    cur_path=$(get_current_path)
+    if [ -n "$cur_dom" ]; then
+        generate_nginx_config "$cur_dom" "$cur_port" "$cur_path"
+        if nginx -t >/dev/null 2>&1; then
+            systemctl reload nginx 2>/dev/null || systemctl restart nginx 2>/dev/null || true
+            echo -e "${GREEN}[+] Nginx configuration updated and reloaded.${NC}"
+        fi
+    fi
+
     if [ -f /etc/systemd/system/ike-ui.service ]; then
         sed -i 's|gunicorn .* app:app|gunicorn --workers 2 --threads 8 --worker-class gthread --worker-connections 1000 --timeout 30 --graceful-timeout 2 -b 127.0.0.1:8000 app:app|g' /etc/systemd/system/ike-ui.service
         if ! grep -q "TimeoutStopSec=" /etc/systemd/system/ike-ui.service; then
