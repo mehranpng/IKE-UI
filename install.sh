@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.6.1"
+APP_VERSION="1.7.0"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"
@@ -172,6 +172,49 @@ NGINX_EOF
         chunked_transfer_encoding off;
     }
 
+    location = /sub {
+        proxy_pass http://127.0.0.1:8000/sub;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Port \$server_port;
+        proxy_set_header X-Forwarded-Prefix "";
+
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 86400s;
+        proxy_set_header Connection '';
+        proxy_http_version 1.1;
+        chunked_transfer_encoding off;
+    }
+
+    location /sub/ {
+        proxy_pass http://127.0.0.1:8000/sub/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Port \$server_port;
+        proxy_set_header X-Forwarded-Prefix "";
+
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 86400s;
+        proxy_set_header Connection '';
+        proxy_http_version 1.1;
+        chunked_transfer_encoding off;
+    }
+
+    location /static/ {
+        proxy_pass http://127.0.0.1:8000/static/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Port \$server_port;
+    }
+
     location / {
         return 404;
     }
@@ -212,7 +255,7 @@ show_banner() {
         disk_ver=$(grep -oP '^APP_VERSION=["\x27]?\K[^"\x27\s]+' "${INSTALL_DIR}/install.sh" 2>/dev/null || true)
         if [ -n "$disk_ver" ]; then
             cur_ver="$disk_ver"
-            APP_VERSION="1.6.1"
+            APP_VERSION="$disk_ver"
         fi
     fi
     echo -e "${PURPLE}${BOLD}"
@@ -988,7 +1031,7 @@ RENEW_EOF
         new_ver=$(grep -oP '^APP_VERSION\s*=\s*["\x27]?\K[^"\x27\s]+' "${INSTALL_DIR}/panel/app.py" 2>/dev/null || true)
     fi
     if [ -n "$new_ver" ]; then
-        APP_VERSION="1.6.1"
+        APP_VERSION="$new_ver"
     fi
 
     if systemctl is-active --quiet ike-ui.service; then

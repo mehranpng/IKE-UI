@@ -60,7 +60,9 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.6.1"
+APP_VERSION = "1.7.0"
+
+SUB_SESSION_LIFETIME = 3 * 24 * 3600  # 3 days in seconds (259200s)
 
 app = Flask(
     __name__,
@@ -93,10 +95,18 @@ limiter = Limiter(
 @app.errorhandler(RateLimitExceeded)
 def ratelimit_handler(e):
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json or request.accept_mimetypes.best == "application/json"
-    msg = "Too many login attempts. Please try again later."
+    is_sub = request.path.startswith("/sub")
+    msg = "Too many requests. Please slow down and try again later."
     if is_ajax:
         return jsonify({"success": False, "error": msg}), 429
     flash(msg, "danger")
+    if is_sub:
+        username_arg = (request.args.get("u") or request.args.get("username") or request.args.get("user") or "").strip()
+        return render_template("sub.html",
+                               is_logged_in=False,
+                               prefilled_username=username_arg,
+                               server_domain=get_system_config("server_domain", SERVER_DOMAIN),
+                               error=msg), 429
     return render_template("login.html"), 429
 
 @app.before_request
@@ -955,6 +965,59 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def clear_sub_session():
+    session.pop("sub_logged_in", None)
+    session.pop("sub_user_id", None)
+    session.pop("sub_username", None)
+    session.pop("sub_password", None)
+    session.pop("sub_login_time", None)
+
+def sub_login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json or request.accept_mimetypes.best == "application/json"
+        sub_id = session.get("sub_user_id")
+        sub_user = session.get("sub_username")
+        sub_pass = session.get("sub_password")
+        sub_logged = session.get("sub_logged_in")
+        sub_login_time = session.get("sub_login_time")
+
+        if not sub_logged or not sub_id or not sub_user or not sub_pass:
+            clear_sub_session()
+            if is_ajax:
+                return jsonify({"success": False, "error": "Unauthorized or session expired", "redirect": url_for("sub_portal")}), 401
+            return redirect(url_for("sub_portal"))
+
+        now = int(time.time())
+        if sub_login_time and (now - int(sub_login_time)) > SUB_SESSION_LIFETIME:
+            clear_sub_session()
+            if is_ajax:
+                return jsonify({"success": False, "error": "Your session has expired (3-day limit). Please sign in again.", "redirect": url_for("sub_portal", u=sub_user)}), 401
+            flash("Your session has expired (3-day limit). Please sign in again.", "warning")
+            return redirect(url_for("sub_portal", u=sub_user))
+
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, username, password FROM users WHERE id = ?", (sub_id,))
+            user_db = cursor.fetchone()
+            conn.close()
+
+            if not user_db or user_db["username"] != sub_user or user_db["password"] != sub_pass:
+                clear_sub_session()
+                if is_ajax:
+                    return jsonify({"success": False, "error": "Account credentials were changed. Please log in again.", "redirect": url_for("sub_portal", u=sub_user)}), 401
+                flash("Account credentials were changed. Please log in again.", "warning")
+                return redirect(url_for("sub_portal", u=sub_user))
+        except Exception:
+            clear_sub_session()
+            if is_ajax:
+                return jsonify({"success": False, "error": "Session validation error", "redirect": url_for("sub_portal")}), 401
+            return redirect(url_for("sub_portal"))
+
+        return f(*args, **kwargs)
+    return decorated_function
+
 def format_bytes_val(bytes_val):
     if bytes_val is None:
         return "0 B"
@@ -1247,6 +1310,184 @@ def get_user_info_api(user_id):
         return jsonify({"success": True, "user": user_data})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/sub", methods=["GET"])
+@limiter.limit("1/second; 60/minute")
+def sub_portal():
+    sub_id = session.get("sub_user_id")
+    sub_user = session.get("sub_username")
+    sub_pass = session.get("sub_password")
+    sub_logged = session.get("sub_logged_in")
+    sub_login_time = session.get("sub_login_time")
+    now = int(time.time())
+
+    is_valid = False
+    user_data = None
+
+    if sub_logged and sub_id and sub_user and sub_pass:
+        if sub_login_time and (now - int(sub_login_time)) <= SUB_SESSION_LIFETIME:
+            try:
+                conn = get_db()
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM users WHERE id = ?", (sub_id,))
+                row = cursor.fetchone()
+                conn.close()
+                if row and row["username"] == sub_user and row["password"] == sub_pass:
+                    is_valid = True
+                    online = get_online_users()
+                    user_data = format_user_payload(dict(row), online)
+            except Exception:
+                is_valid = False
+
+    if not is_valid:
+        clear_sub_session()
+        username_arg = (request.args.get("u") or request.args.get("username") or request.args.get("user") or "").strip()
+        return render_template(
+            "sub.html",
+            is_logged_in=False,
+            prefilled_username=username_arg,
+            server_domain=get_system_config("server_domain", SERVER_DOMAIN)
+        )
+
+    return render_template(
+        "sub.html",
+        is_logged_in=True,
+        user=user_data,
+        server_domain=get_system_config("server_domain", SERVER_DOMAIN)
+    )
+
+@app.route("/sub/login", methods=["POST"])
+@limiter.limit("1/second; 10/minute")
+def sub_login():
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json or request.accept_mimetypes.best == "application/json"
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+
+    if not username or not password:
+        msg = "Username and password are required!"
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("sub_portal", u=username))
+
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (username,))
+        user = cursor.fetchone()
+        conn.close()
+
+        if user and user["password"] == password:
+            session["sub_logged_in"] = True
+            session["sub_user_id"] = user["id"]
+            session["sub_username"] = user["username"]
+            session["sub_password"] = user["password"]
+            session["sub_login_time"] = int(time.time())
+
+            if is_ajax:
+                return jsonify({"success": True, "redirect": url_for("sub_portal")})
+            return redirect(url_for("sub_portal"))
+        else:
+            msg = "Invalid username or password!"
+            if is_ajax:
+                return jsonify({"success": False, "error": msg}), 401
+            flash(msg, "danger")
+            return redirect(url_for("sub_portal", u=username))
+    except Exception as e:
+        msg = f"Login error: {e}"
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 500
+        flash(msg, "danger")
+        return redirect(url_for("sub_portal", u=username))
+
+@app.route("/sub/logout", methods=["GET", "POST"])
+@limiter.limit("1/second")
+def sub_logout():
+    username = session.get("sub_username", "")
+    clear_sub_session()
+    if username:
+        return redirect(url_for("sub_portal", u=username))
+    return redirect(url_for("sub_portal"))
+
+@app.route("/sub/change-password", methods=["POST"])
+@sub_login_required
+@limiter.limit("1/second; 10/minute")
+def sub_change_password():
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json or request.accept_mimetypes.best == "application/json"
+    sub_id = session.get("sub_user_id")
+    sub_user = session.get("sub_username")
+
+    curr_pass = request.form.get("current_password", "").strip()
+    new_pass = request.form.get("new_password", "").strip()
+    confirm_pass = request.form.get("confirm_password", "").strip()
+
+    if not curr_pass or not new_pass or not confirm_pass:
+        msg = "All password fields are required!"
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("sub_portal"))
+
+    if new_pass != confirm_pass:
+        msg = "New passwords do not match!"
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("sub_portal"))
+
+    if len(new_pass) > 24:
+        msg = "Password length cannot exceed 24 characters!"
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("sub_portal"))
+
+    if len(new_pass) < 1:
+        msg = "Password cannot be empty!"
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("sub_portal"))
+
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, username, password FROM users WHERE id = ?", (sub_id,))
+        user = cursor.fetchone()
+
+        if not user or user["password"] != curr_pass:
+            conn.close()
+            msg = "Current password is incorrect!"
+            if is_ajax:
+                return jsonify({"success": False, "error": msg}), 400
+            flash(msg, "danger")
+            return redirect(url_for("sub_portal"))
+
+        cursor.execute("UPDATE users SET password = ? WHERE id = ?", (new_pass, sub_id))
+        conn.commit()
+        conn.close()
+
+        sync_ipsec_secrets()
+        disconnect_user_sas(sub_user)
+        clear_sub_session()
+
+        msg = "Password changed successfully! Please sign in with your new password."
+        redirect_target = url_for("sub_portal", u=sub_user)
+
+        if is_ajax:
+            return jsonify({
+                "success": True,
+                "message": msg,
+                "redirect": redirect_target
+            })
+        flash(msg, "success")
+        return redirect(redirect_target)
+    except Exception as e:
+        msg = f"Error changing password: {e}"
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 500
+        flash(msg, "danger")
+        return redirect(url_for("sub_portal"))
 
 @app.route("/")
 @login_required
@@ -1683,6 +1924,49 @@ server {{
         proxy_set_header Connection '';
         proxy_http_version 1.1;
         chunked_transfer_encoding off;
+    }}
+
+    location = /sub {{
+        proxy_pass http://127.0.0.1:8000/sub;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Port $server_port;
+        proxy_set_header X-Forwarded-Prefix "";
+
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 86400s;
+        proxy_set_header Connection '';
+        proxy_http_version 1.1;
+        chunked_transfer_encoding off;
+    }}
+
+    location /sub/ {{
+        proxy_pass http://127.0.0.1:8000/sub/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Port $server_port;
+        proxy_set_header X-Forwarded-Prefix "";
+
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 86400s;
+        proxy_set_header Connection '';
+        proxy_http_version 1.1;
+        chunked_transfer_encoding off;
+    }}
+
+    location /static/ {{
+        proxy_pass http://127.0.0.1:8000/static/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Port $server_port;
     }}
 
     location / {{

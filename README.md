@@ -3,7 +3,7 @@
 > IKEv2/IPsec VPN Server & Web Management Panel
 
 <p align="left">
-  <img src="https://img.shields.io/badge/Release-v1.6.1-7452ff?style=flat-square" alt="Version 1.6.0" />
+  <img src="https://img.shields.io/badge/Release-v1.7.0-7452ff?style=flat-square" alt="Version 1.7.0" />
   <img src="https://img.shields.io/badge/VPN-IKEv2%20%2F%20IPsec-blue?style=flat-square" alt="IKEv2 VPN" />
   <img src="https://img.shields.io/badge/SSL-Let's%20Encrypt%20Auto-brightgreen?style=flat-square" alt="Let's Encrypt" />
   <img src="https://img.shields.io/badge/OS-Ubuntu%20%2F%20Debian-orange?style=flat-square" alt="Ubuntu / Debian" />
@@ -62,6 +62,18 @@ ike-ui logs      # View system logs
 ike-ui ssl       # Manage or renew SSL certificates
 ike-ui update    # Update IKE-UI
 ```
+
+---
+
+### User Account Portal (`/sub`)
+
+IKE-UI includes a built-in user portal accessible at `/sub` (e.g., `https://vpn.example.com/sub` or `https://vpn.example.com/sub?u=username`):
+
+- **Query Parameter Auto-Fill:** Opening `/sub?u=username` automatically pre-fills the username field on the login screen.
+- **Account Overview:** Users can log in with their VPN credentials to view their active subscription, data usage quota, expiration date, and simultaneous device limits.
+- **Live Connection & IP Monitoring:** Displays real-time online status, active connected device IPs, and last connected IP.
+- **Self-Service Password Management:** Users can change their own VPN password (up to 24 characters). Changing the password automatically terminates active VPN sessions, expires the current portal session, and redirects back to the login screen with the username prefilled.
+- **Security & Rate Limiting:** All portal endpoints are protected with IP-based rate limiting (1 req/s burst, 10 req/min login & password change, 60 req/min data load) and an automatic 3-day session expiration.
 
 ---
 

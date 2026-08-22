@@ -495,6 +495,15 @@
                             <span class="conn-label">Device Limit</span>
                             <span class="conn-value" id="succDevices">10 Devices</span>
                         </div>
+                        <div class="conn-item">
+                            <span class="conn-label">Portal Link</span>
+                            <div class="conn-val-wrap">
+                                <span class="conn-value" id="succSubLink" style="font-size: 0.8rem; word-break: break-all;"></span>
+                                <button type="button" class="btn-copy-field" onclick="copyFieldValue('succSubLink', this)" title="Copy Portal Link">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -647,6 +656,15 @@
                             <span class="conn-label">Device Limit</span>
                             <span class="conn-value" id="editSuccDevices">10 Devices</span>
                         </div>
+                        <div class="conn-item">
+                            <span class="conn-label">Portal Link</span>
+                            <div class="conn-val-wrap">
+                                <span class="conn-value" id="editSuccSubLink" style="font-size: 0.8rem; word-break: break-all;"></span>
+                                <button type="button" class="btn-copy-field" onclick="copyFieldValue('editSuccSubLink', this)" title="Copy Portal Link">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -745,6 +763,15 @@
                         <div class="info-row" id="infoNoteRow" style="display: none;">
                             <span class="info-label">Note</span>
                             <span class="info-value" id="infoNoteVal">--</span>
+                        </div>
+                        <div class="info-row" id="infoSubLinkRow">
+                            <span class="info-label">Portal Link</span>
+                            <div class="conn-val-wrap" style="max-width: 250px;">
+                                <span class="info-value stat-mono" id="infoSubLinkVal" style="font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">--</span>
+                                <button type="button" class="btn-copy-field" onclick="copyFieldValue('infoSubLinkVal', this)" title="Copy Portal Link">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1231,6 +1258,10 @@
                     noteRow.style.display = 'none';
                 }
             }
+            const infoSubEl = document.getElementById('infoSubLinkVal');
+            if (infoSubEl) {
+                infoSubEl.innerText = getUserSubLink(u.username);
+            }
         }
 
         function openUserInfoModal(userId) {
@@ -1282,6 +1313,11 @@
             if (event.target == document.getElementById('confirmModal')) closeConfirmModal();
             if (event.target == document.getElementById('vpnDisabledModal')) closeVpnDisabledModal();
             if (event.target == document.getElementById('userInfoModal')) closeUserInfoModal();
+        }
+
+        function getUserSubLink(username) {
+            const portStr = (location.port && location.port !== '443' && location.port !== '80') ? (':' + location.port) : '';
+            return `${location.protocol}//${location.hostname}${portStr}/sub?u=${encodeURIComponent(username || '')}`;
         }
 
         function copyFieldValue(elementId, btn) {
@@ -1733,6 +1769,8 @@
                     document.getElementById('succExpire').innerText = res.expire;
                     const succDevEl = document.getElementById('succDevices');
                     if (succDevEl) succDevEl.innerText = `${res.max_devices || 10} Devices`;
+                    const succSubLinkEl = document.getElementById('succSubLink');
+                    if (succSubLinkEl) succSubLinkEl.innerText = getUserSubLink(res.username);
 
                     const newUser = {
                         id: res.user_id,
@@ -1842,6 +1880,8 @@
                         document.getElementById('editSuccExpire').innerText = res.expire;
                         const editSuccDevEl = document.getElementById('editSuccDevices');
                         if (editSuccDevEl) editSuccDevEl.innerText = `${res.max_devices || 10} Devices`;
+                        const editSubLinkEl = document.getElementById('editSuccSubLink');
+                        if (editSubLinkEl) editSubLinkEl.innerText = getUserSubLink(res.username);
 
                         document.getElementById('editFormView').style.display = 'none';
                         document.getElementById('editSuccessView').style.display = 'block';
@@ -1875,7 +1915,8 @@
 
         function copyConnectionInfo() {
             if (!lastCreatedPayload) return;
-            const text = `🌐 Server: ${lastCreatedPayload.server}\n👤 Username: ${lastCreatedPayload.username}\n🔑 Password: ${lastCreatedPayload.password}\n📊 Traffic: ${lastCreatedPayload.max_traffic}\n⏳ Validity: ${lastCreatedPayload.expire}\n📱 Devices: ${lastCreatedPayload.max_devices || 10}`;
+            const subUrl = getUserSubLink(lastCreatedPayload.username);
+            const text = `🌐 Server: ${lastCreatedPayload.server}\n👤 Username: ${lastCreatedPayload.username}\n🔑 Password: ${lastCreatedPayload.password}\n📊 Traffic: ${lastCreatedPayload.max_traffic}\n⏳ Validity: ${lastCreatedPayload.expire}\n📱 Devices: ${lastCreatedPayload.max_devices || 10}\n🔗 Portal: ${subUrl}`;
             navigator.clipboard.writeText(text).then(() => {
                 const btnText = document.getElementById('copyBtnText');
                 const orig = btnText.innerText;
@@ -1886,7 +1927,8 @@
 
         function copyEditConnectionInfo() {
             if (!lastEditedPayload) return;
-            const text = `🌐 Server: ${lastEditedPayload.server}\n👤 Username: ${lastEditedPayload.username}\n🔑 Password: ${lastEditedPayload.password}\n📊 Traffic: ${lastEditedPayload.max_traffic}\n⏳ Validity: ${lastEditedPayload.expire}\n📱 Devices: ${lastEditedPayload.max_devices || 10}`;
+            const subUrl = getUserSubLink(lastEditedPayload.username);
+            const text = `🌐 Server: ${lastEditedPayload.server}\n👤 Username: ${lastEditedPayload.username}\n🔑 Password: ${lastEditedPayload.password}\n📊 Traffic: ${lastEditedPayload.max_traffic}\n⏳ Validity: ${lastEditedPayload.expire}\n📱 Devices: ${lastEditedPayload.max_devices || 10}\n🔗 Portal: ${subUrl}`;
             navigator.clipboard.writeText(text).then(() => {
                 const btnText = document.getElementById('editCopyBtnText');
                 const orig = btnText.innerText;

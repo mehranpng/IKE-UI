@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IKE-UI - User Portal</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Space+Grotesk:wght@600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        .sub-portal-layout {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-main);
+        }
+        .sub-navbar {
+            background: var(--bg-surface);
+            border-bottom: var(--border-chunky) solid var(--border-dark);
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 0px #000000;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .sub-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .sub-container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem 3rem 1rem;
+            width: 100%;
+        }
+        .sub-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1.25rem;
+        }
+        .sub-card {
+            background: var(--bg-card);
+            border: var(--border-width) solid var(--border-dark);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            box-shadow: var(--shadow-md);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .sub-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .sub-card-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: var(--font-heading);
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .sub-info-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid rgba(45, 50, 77, 0.4);
+            font-size: 0.9rem;
+        }
+        .sub-info-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .sub-info-label {
+            color: var(--text-secondary);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .sub-info-val {
+            font-family: var(--font-mono);
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .char-counter {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .char-counter.limit-near {
+            color: var(--warning);
+        }
+        .char-counter.limit-max {
+            color: var(--danger);
+        }
+        .btn-refresh {
+            background: #1a1d2d;
+            color: #ffffff;
+            border: var(--border-width) solid var(--border-dark);
+            border-radius: var(--radius-md);
+            padding: 0.4rem 0.75rem;
+            font-family: var(--font-heading);
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            box-shadow: var(--shadow-xs);
+            transition: all 0.15s ease;
+        }
+        .btn-refresh:hover {
+            background: #252a40;
+            transform: translate(-1px, -1px);
+            box-shadow: var(--shadow-sm);
+        }
+        .btn-refresh.spinning svg {
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+        .device-chip {
+            background: rgba(116, 82, 255, 0.12);
+            border: 1px solid rgba(116, 82, 255, 0.35);
+            border-radius: var(--radius-sm);
+            padding: 0.45rem 0.75rem;
+            margin-top: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+        }
+        .device-chip-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: var(--accent-cyan);
+            font-weight: 700;
+        }
+        .device-chip-ip {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .pwd-toggle-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .pwd-toggle-wrap input {
+            padding-right: 2.5rem;
+        }
+        .pwd-toggle-btn {
+            position: absolute;
+            right: 8px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            transition: color 0.15s;
+        }
+        .pwd-toggle-btn:hover {
+            color: var(--text-primary);
+        }
+        .conn-item-box {
+            background: var(--bg-surface);
+            border: 1.5px solid var(--border-dark);
+            border-radius: var(--radius-md);
+            padding: 0.6rem 0.85rem;
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .conn-item-box:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+
+{% if not is_logged_in %}
+    <!-- Sub Login View -->
+    <div class="login-body">
+        <div class="login-card">
+            <div class="login-header">
+                <h2>IKE-UI</h2>
+                <div class="login-version"><span class="brand-badge">Account Portal</span></div>
+                <p>Sign in to view your VPN subscription details and manage your account</p>
+            </div>
+
+            <div id="subLoginAlertBox">
+                {% if error %}
+                    <div class="alert alert-danger">{{ error }}</div>
+                {% endif %}
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <form method="POST" action="{{ url_for('sub_login') }}" class="login-form" id="subLoginForm" novalidate onsubmit="return handleSubLoginSubmit(event)">
+                <div class="form-group">
+                    <label for="subUsername">Username</label>
+                    <input type="text" id="subUsername" name="username" value="{{ prefilled_username or '' }}" placeholder="Enter your username" {% if not prefilled_username %}autofocus{% endif %} autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="subPassword">Password</label>
+                    <div class="pwd-toggle-wrap">
+                        <input type="password" id="subPassword" name="password" placeholder="••••••••" {% if prefilled_username %}autofocus{% endif %} autocomplete="current-password">
+                        <button type="button" class="pwd-toggle-btn" onclick="toggleSubLoginPassVisibility()" title="Show/Hide Password" aria-label="Toggle password visibility">
+                            <svg id="subPassEyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" style="margin-top: 1.5rem;" id="btnSubLogin">Sign In</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function toggleSubLoginPassVisibility() {
+            const pwdInput = document.getElementById('subPassword');
+            const eyeIcon = document.getElementById('subPassEyeIcon');
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                eyeIcon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+            } else {
+                pwdInput.type = 'password';
+                eyeIcon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+            }
+        }
+
+        async function handleSubLoginSubmit(e) {
+            e.preventDefault();
+            const uInput = document.getElementById('subUsername');
+            const pInput = document.getElementById('subPassword');
+            const submitBtn = document.getElementById('btnSubLogin');
+            const alertBox = document.getElementById('subLoginAlertBox');
+
+            if (!uInput.value.trim()) {
+                alertBox.innerHTML = '<div class="alert alert-danger">Username is required</div>';
+                uInput.focus();
+                return false;
+            }
+            if (!pInput.value) {
+                alertBox.innerHTML = '<div class="alert alert-danger">Password is required</div>';
+                pInput.focus();
+                return false;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Signing In...';
+
+            const form = document.getElementById('subLoginForm');
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch("{{ url_for('sub_login') }}", {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData
+                });
+
+                if (response.status === 429) {
+                    const data = await response.json().catch(() => ({}));
+                    const errMsg = data.error || 'Too many login attempts. Please slow down and try again later.';
+                    alertBox.innerHTML = `<div class="alert alert-danger">${errMsg}</div>`;
+                    return false;
+                }
+
+                if (response.redirected) {
+                    window.location.href = response.url;
+                    return false;
+                }
+
+                const res = await response.json().catch(() => null);
+                if (res && res.success) {
+                    window.location.href = res.redirect || "{{ url_for('sub_portal') }}";
+                } else if (res && res.error) {
+                    alertBox.innerHTML = `<div class="alert alert-danger">${res.error}</div>`;
+                } else {
+                    alertBox.innerHTML = '<div class="alert alert-danger">Invalid username or password!</div>';
+                }
+            } catch (err) {
+                form.submit();
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Sign In';
+            }
+            return false;
+        }
+    </script>
+
+{% else %}
+    <!-- Sub Dashboard View -->
+    <div class="sub-portal-layout">
+        <header class="sub-navbar">
+            <div class="sub-brand">
+                <h1 class="brand-title">IKE-UI</h1>
+                <span class="brand-badge">Portal</span>
+                <span class="brand-badge" style="background: #252a40; color: #ffffff;">{{ user.username }}</span>
+            </div>
+
+            <div class="nav-actions">
+                <button type="button" class="btn-refresh" id="btnSubRefresh" onclick="refreshSubPage()" title="Refresh Data">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"/>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                    </svg>
+                    <span>Refresh</span>
+                </button>
+                <a href="{{ url_for('sub_logout') }}" class="btn btn-outline btn-icon" title="Sign Out" aria-label="Sign Out">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                </a>
+            </div>
+        </header>
+
+        <main class="sub-container">
+            <div id="subAlertBox">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <div class="sub-grid">
+                <!-- Account Status & Live Network Card -->
+                <div class="sub-card">
+                    <div class="sub-card-header">
+                        <span class="sub-card-title">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color: var(--accent-cyan);">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+                                <path d="M2 12h20"/>
+                            </svg>
+                            Connection Status
+                        </span>
+                        <span class="status-pill {% if user.is_active == 1 %}status-active{% else %}status-disabled{% endif %}">
+                            <span class="status-dot"></span>
+                            {{ 'Active' if user.is_active == 1 else 'Disabled' }}
+                        </span>
+                    </div>
+
+                    <div class="sub-info-row">
+                        <span class="sub-info-label">Live State</span>
+                        <span class="sub-info-val">
+                            {% if user.is_online %}
+                                <span class="badge badge-online">
+                                    <span class="badge-pulse"></span>
+                                    Online ({{ user.device_count }} / {{ user.max_devices }} Devices)
+                                </span>
+                            {% else %}
+                                <span class="badge badge-neutral">Offline</span>
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="sub-info-row">
+                        <span class="sub-info-label">Last Connected IP</span>
+                        <span class="sub-info-val" style="color: var(--accent-cyan);">
+                            {{ user.last_ip or '--' }}
+                        </span>
+                    </div>
+
+                    <div class="sub-info-row">
+                        <span class="sub-info-label">Last Activity</span>
+                        <span class="sub-info-val" style="font-size: 0.82rem;">
+                            {% if user.is_online %}
+                                <span style="color: var(--success);">Connected Now</span>
+                            {% elif user.last_online_at %}
+                                {{ user.last_seen_formatted or user.last_online_at }}
+                            {% else %}
+                                Never Connected
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    {% if user.is_online and user.live_net and user.live_net.devices %}
+                        <div style="margin-top: 0.75rem;">
+                            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.3rem;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                Active Connected Devices ({{ user.live_net.devices | length }}):
+                            </div>
+                            {% for dev in user.live_net.devices %}
+                                <div class="device-chip">
+                                    <div class="device-chip-header">
+                                        <span>Device #{{ loop.index }}</span>
+                                        <span style="color: var(--text-muted); font-size: 0.75rem;">{{ dev.established }}</span>
+                                    </div>
+                                    <div class="device-chip-ip">
+                                        Client IP: <span style="color: var(--accent-cyan);">{{ dev.client_ip or '--' }}</span>
+                                        {% if dev.vip %} | VIP: <span style="color: var(--primary);">{{ dev.vip }}</span>{% endif %}
+                                    </div>
+                                    <div style="display: flex; gap: 0.75rem; color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.15rem;">
+                                        <span>↓ {{ dev.bytes_down }}</span>
+                                        <span>↑ {{ dev.bytes_up }}</span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Traffic Quota Card -->
+                <div class="sub-card">
+                    <div class="sub-card-header">
+                        <span class="sub-card-title">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary);">
+                                <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                            </svg>
+                            Data Consumption
+                        </span>
+                        <span class="stat-number" style="font-size: 1.1rem; color: var(--accent-cyan);">
+                            {{ user.used_traffic_formatted }}
+                        </span>
+                    </div>
+
+                    <div style="margin: 0.5rem 0 1rem 0;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700; margin-bottom: 0.4rem;">
+                            <span style="color: var(--text-secondary);">Quota Usage</span>
+                            <span>{{ user.traffic_percent }}%</span>
+                        </div>
+                        <div class="progress-track" style="height: 10px; border-radius: 5px;">
+                            <div class="progress-bar {% if user.traffic_percent > 90 %}progress-danger{% elif user.traffic_percent > 70 %}progress-warning{% endif %}" style="width: {{ user.traffic_percent }}%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="sub-info-row">
+                        <span class="sub-info-label">Used Traffic</span>
+                        <span class="sub-info-val">{{ user.used_traffic_formatted }}</span>
+                    </div>
+                    <div class="sub-info-row">
+                        <span class="sub-info-label">Traffic Limit</span>
+                        <span class="sub-info-val">
+                            {% if user.max_traffic_gb and user.max_traffic_gb > 0 %}
+                                {{ user.max_traffic_gb }} GB
+                            {% else %}
+                                ∞ Unlimited
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="sub-info-row">
+                        <span class="sub-info-label">Max Devices</span>
+                        <span class="sub-info-val">{{ user.max_devices }} Devices</span>
+                    </div>
+                </div>
+
+                <!-- Validity & Expiration Card -->
+                <div class="sub-card">
+                    <div class="sub-card-header">
+                        <span class="sub-card-title">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent-yellow);">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                            Validity & Expiration
+                        </span>
+                        <span class="sub-info-val" style="color: var(--accent-yellow); font-size: 1rem;">
+                            {{ user.time_remaining }}
+                        </span>
+                    </div>
+
+                    <div class="sub-info-row">
+                        <span class="sub-info-label">Expiration Date</span>
+                        <span class="sub-info-val">
+                            {% if user.expire_date %}
+                                {{ user.expire_date[:10] }}
+                            {% else %}
+                                ∞ Lifetime (Unlimited)
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="sub-info-row">
+                        <span class="sub-info-label">Account Created</span>
+                        <span class="sub-info-val" style="font-size: 0.82rem;">{{ user.created_at or '--' }}</span>
+                    </div>
+                    <div class="sub-info-row">
+                        <span class="sub-info-label">Note</span>
+                        <span class="sub-info-val" style="font-size: 0.82rem; font-weight: 500;">{{ user.note or 'No notes' }}</span>
+                    </div>
+                </div>
+
+                <!-- Connection Settings / Quick Config Card -->
+                <div class="sub-card">
+                    <div class="sub-card-header">
+                        <span class="sub-card-title">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary);">
+                                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                                <line x1="6" y1="6" x2="6.01" y2="6"/>
+                                <line x1="6" y1="18" x2="6.01" y2="18"/>
+                            </svg>
+                            Connection Credentials
+                        </span>
+                    </div>
+
+                    <div class="conn-item-box">
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">SERVER / REMOTE ID</div>
+                            <div style="font-family: var(--font-mono); font-weight: 700;" id="subServerVal">{{ server_domain }}</div>
+                        </div>
+                        <button type="button" class="btn-copy-field" onclick="copyFieldValue('subServerVal', this)" title="Copy Server">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="conn-item-box">
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">USERNAME</div>
+                            <div style="font-family: var(--font-mono); font-weight: 700;" id="subUserVal">{{ user.username }}</div>
+                        </div>
+                        <button type="button" class="btn-copy-field" onclick="copyFieldValue('subUserVal', this)" title="Copy Username">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="conn-item-box">
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">PASSWORD</div>
+                            <div style="font-family: var(--font-mono); font-weight: 700; color: var(--accent-yellow);" id="subPassVal">{{ user.password }}</div>
+                        </div>
+                        <div style="display: flex; gap: 0.3rem;">
+                            <button type="button" class="btn-copy-field" onclick="copyFieldValue('subPassVal', this)" title="Copy Password">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary btn-block" style="margin-top: 0.85rem;" onclick="copySubConnectionInfo()">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        <span id="subCopyAllBtnText">Copy Connection Info</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Change Password Card -->
+            <div class="card" style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h2>Change Account Password</h2>
+                    <p>Update your VPN credentials. Maximum allowed password length is 24 characters.</p>
+                </div>
+                <div class="card-body">
+                    <div id="changePwdAlertBox"></div>
+
+                    <form id="changePasswordForm" novalidate onsubmit="return handleSubChangePassword(event)" style="max-width: 500px;">
+                        <div class="form-group">
+                            <label for="subCurrentPassword">Current Password</label>
+                            <input type="password" id="subCurrentPassword" name="current_password" placeholder="Enter current password" autocomplete="current-password">
+                        </div>
+
+                        <div class="form-group">
+                            <div class="label-row">
+                                <label for="subNewPassword">New Password</label>
+                                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                    <span class="char-counter" id="newPassCharCount">0 / 24</span>
+                                    <button type="button" class="btn-text-action" onclick="generateSubPassword()">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                                        Generate
+                                    </button>
+                                </div>
+                            </div>
+                            <input type="text" id="subNewPassword" name="new_password" maxlength="24" placeholder="New password (max 24 chars)" autocomplete="new-password" oninput="updateCharCounter(this)">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="subConfirmPassword">Confirm New Password</label>
+                            <input type="text" id="subConfirmPassword" name="confirm_password" maxlength="24" placeholder="Repeat new password" autocomplete="new-password">
+                        </div>
+
+                        <div style="background: rgba(255, 183, 3, 0.08); border: 1px solid rgba(255, 183, 3, 0.25); border-radius: var(--radius-md); padding: 0.75rem; margin-bottom: 1.25rem; font-size: 0.82rem; color: var(--warning); display: flex; gap: 0.5rem; align-items: flex-start;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            <span>Changing your password will immediately disconnect any active VPN sessions and log you out. You will be redirected to sign in with your new password.</span>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="btnSubmitChangePwd">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            Update Password & Sign Out
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function refreshSubPage() {
+            const btn = document.getElementById('btnSubRefresh');
+            if (btn) btn.classList.add('spinning');
+            setTimeout(() => {
+                window.location.reload();
+            }, 250);
+        }
+
+        function copyFieldValue(elementId, btn) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const text = el.innerText.trim();
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => {
+                if (btn) {
+                    btn.classList.add('copied');
+                    const origHTML = btn.innerHTML;
+                    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+                    setTimeout(() => {
+                        btn.classList.remove('copied');
+                        btn.innerHTML = origHTML;
+                    }, 1500);
+                }
+            });
+        }
+
+        function copySubConnectionInfo() {
+            const server = document.getElementById('subServerVal').innerText.trim();
+            const username = document.getElementById('subUserVal').innerText.trim();
+            const password = document.getElementById('subPassVal').innerText.trim();
+            const text = `🌐 Server: ${server}\n👤 Username: ${username}\n🔑 Password: ${password}\n📱 Device Limit: {{ user.max_devices }} Devices`;
+
+            navigator.clipboard.writeText(text).then(() => {
+                const btnText = document.getElementById('subCopyAllBtnText');
+                const orig = btnText.innerText;
+                btnText.innerText = 'Copied! ✓';
+                setTimeout(() => { btnText.innerText = orig; }, 2000);
+            });
+        }
+
+        function updateCharCounter(input) {
+            const counter = document.getElementById('newPassCharCount');
+            if (!counter) return;
+            const len = input.value.length;
+            counter.innerText = `${len} / 24`;
+            counter.className = 'char-counter' + (len >= 24 ? ' limit-max' : (len >= 20 ? ' limit-near' : ''));
+        }
+
+        function generateSubPassword() {
+            const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*';
+            let pwd = '';
+            for (let i = 0; i < 12; i++) {
+                pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            const inp1 = document.getElementById('subNewPassword');
+            const inp2 = document.getElementById('subConfirmPassword');
+            if (inp1) {
+                inp1.value = pwd;
+                updateCharCounter(inp1);
+            }
+            if (inp2) {
+                inp2.value = pwd;
+            }
+        }
+
+        async function handleSubChangePassword(e) {
+            e.preventDefault();
+            const form = document.getElementById('changePasswordForm');
+            const alertBox = document.getElementById('changePwdAlertBox');
+            const submitBtn = document.getElementById('btnSubmitChangePwd');
+
+            const curPass = document.getElementById('subCurrentPassword').value;
+            const newPass = document.getElementById('subNewPassword').value;
+            const confPass = document.getElementById('subConfirmPassword').value;
+
+            if (!curPass) {
+                alertBox.innerHTML = '<div class="alert alert-danger">Current password is required!</div>';
+                return false;
+            }
+            if (!newPass) {
+                alertBox.innerHTML = '<div class="alert alert-danger">New password cannot be empty!</div>';
+                return false;
+            }
+            if (newPass.length > 24) {
+                alertBox.innerHTML = '<div class="alert alert-danger">Password length cannot exceed 24 characters!</div>';
+                return false;
+            }
+            if (newPass !== confPass) {
+                alertBox.innerHTML = '<div class="alert alert-danger">New passwords do not match!</div>';
+                return false;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Updating Password...';
+
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch("{{ url_for('sub_change_password') }}", {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData
+                });
+
+                if (response.status === 429) {
+                    const data = await response.json().catch(() => ({}));
+                    const errMsg = data.error || 'Too many password change attempts. Please wait a moment and try again.';
+                    alertBox.innerHTML = `<div class="alert alert-danger">${errMsg}</div>`;
+                    return false;
+                }
+
+                if (response.redirected) {
+                    window.location.href = response.url;
+                    return false;
+                }
+
+                const res = await response.json().catch(() => null);
+                if (res && res.success) {
+                    window.location.href = res.redirect || "{{ url_for('sub_portal') }}";
+                } else if (res && res.error) {
+                    alertBox.innerHTML = `<div class="alert alert-danger">${res.error}</div>`;
+                } else {
+                    form.submit();
+                }
+            } catch (err) {
+                form.submit();
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Update Password & Sign Out';
+            }
+            return false;
+        }
+    </script>
+{% endif %}
+
+</body>
+</html>
