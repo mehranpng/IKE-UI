@@ -217,7 +217,7 @@
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 0.45rem;
             transition: all 0.15s ease;
             white-space: nowrap;
         }
@@ -278,7 +278,7 @@
             background: #0d0f18;
             border: 1px solid var(--border-dark);
             border-radius: var(--radius-md);
-            padding: 0.75rem;
+            padding: 0.75rem 2.5rem 0.75rem 0.75rem;
             margin-top: 0.5rem;
             position: relative;
             font-family: var(--font-mono);
@@ -296,11 +296,10 @@
             border-radius: var(--radius-sm);
             color: var(--text-muted);
             cursor: pointer;
-            padding: 3px 6px;
-            font-size: 0.75rem;
+            padding: 4px 6px;
             display: flex;
             align-items: center;
-            gap: 0.3rem;
+            justify-content: center;
             transition: all 0.15s;
         }
         .guide-code-copy:hover {
@@ -365,7 +364,7 @@
                 eyeIcon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
             } else {
                 pwdInput.type = 'password';
-                eyeIcon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+                eyeIcon.innerHTML = '<path d="M12 20s-4-8-11-8-11 8-11 8 4 8 11 8 11-8 11-8z"/><circle cx="12" cy="12" r="3"/>';
             }
         }
 
@@ -437,16 +436,9 @@
             <div class="sub-brand">
                 <h1 class="brand-title">IKE-UI</h1>
                 <span class="brand-badge">Portal</span>
-                <span class="brand-badge" style="background: #252a40; color: #ffffff;">{{ user.username }}</span>
             </div>
 
             <div class="nav-actions">
-                <button type="button" class="btn btn-secondary btn-icon" onclick="openSubChangePasswordModal()" title="Change Password">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-                    </svg>
-                    <span>Change Password</span>
-                </button>
                 <button type="button" class="btn-refresh" id="btnSubRefresh" onclick="refreshSubPage()" title="Refresh Data">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="23 4 23 10 17 10"/>
@@ -563,13 +555,10 @@
                             </svg>
                             Data Consumption
                         </span>
-                        <span class="stat-number" style="font-size: 1.1rem; color: var(--accent-cyan);">
-                            {{ user.used_traffic_formatted }}
-                        </span>
                     </div>
 
                     {% if user.max_traffic_gb and user.max_traffic_gb > 0 %}
-                        <div style="margin: 0.5rem 0 1rem 0;">
+                        <div style="margin: 0.25rem 0 1rem 0;">
                             <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700; margin-bottom: 0.4rem;">
                                 <span style="color: var(--text-secondary);">Quota Usage</span>
                                 <span>{{ user.traffic_percent }}%</span>
@@ -582,7 +571,7 @@
 
                     <div class="sub-info-row">
                         <span class="sub-info-label">Used Traffic</span>
-                        <span class="sub-info-val">{{ user.used_traffic_formatted }}</span>
+                        <span class="sub-info-val" style="color: var(--accent-cyan);">{{ user.used_traffic_formatted }}</span>
                     </div>
                     <div class="sub-info-row">
                         <span class="sub-info-label">Traffic Limit</span>
@@ -610,11 +599,12 @@
                             </svg>
                             Validity & Expiration
                         </span>
-                        <span class="sub-info-val" style="color: var(--accent-yellow); font-size: 1rem;">
-                            {{ user.time_remaining }}
-                        </span>
                     </div>
 
+                    <div class="sub-info-row">
+                        <span class="sub-info-label">Remaining Time</span>
+                        <span class="sub-info-val" style="color: var(--accent-yellow);">{{ user.time_remaining }}</span>
+                    </div>
                     <div class="sub-info-row">
                         <span class="sub-info-label">Expiration Date</span>
                         <span class="sub-info-val">
@@ -687,9 +677,11 @@
                         </div>
                     </div>
 
-                    <button type="button" class="btn btn-primary btn-block" style="margin-top: 0.85rem;" onclick="copySubConnectionInfo()">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                        <span id="subCopyAllBtnText">Copy Connection Info</span>
+                    <button type="button" class="btn btn-secondary btn-block" style="margin-top: 0.85rem;" onclick="openSubChangePasswordModal()">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                        </svg>
+                        Change Password
                     </button>
                 </div>
             </div>
@@ -703,19 +695,27 @@
                 <div class="card-body">
                     <div class="guide-tabs">
                         <button type="button" class="guide-tab-btn active" onclick="switchGuideTab('ios', this)">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20.94c1.88 0 3.05-.88 4.22-.88 1.14 0 2.13.88 4.08.88 2.05 0 3.7-1.74 3.7-3.79 0-2.33-1.63-3.66-1.63-5.26 0-1.61 1.34-2.83 1.34-4.52 0-2.45-2.02-4.45-4.47-4.45-1.57 0-2.87.87-3.87.87-.99 0-2.47-.87-4.04-.87-2.68 0-4.88 2.19-4.88 4.87 0 2.21 1.45 4.34 1.45 6.34 0 1.99-1.45 3.99-1.45 6.2 0 1.83 1.35 3.32 3.19 3.32.78 0 1.52-.31 2.36-.61z"/><path d="M12 2a4.4 4.4 0 0 0-1 3.5 3.8 3.8 0 0 0 3.5-1.5 3.8 3.8 0 0 0-2.5-2z"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 4.37c.62-.75 1.04-1.8 0.92-2.85-.9.04-1.98.6-2.61 1.34-.55.63-1.03 1.67-.9 2.69 1 .08 2.02-.51 2.59-1.18z"/>
+                            </svg>
                             iOS / macOS
                         </button>
                         <button type="button" class="guide-tab-btn" onclick="switchGuideTab('android', this)">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8z"/><line x1="8" y1="18" x2="8" y2="21"/><line x1="16" y1="18" x2="16" y2="21"/><line x1="8" y1="4" x2="10" y2="8"/><line x1="16" y1="4" x2="14" y2="8"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9993.4482.9993.9993.0001.5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.996-3.4572c.156-.2703.063-.6158-.2073-.7718-.2704-.1561-.6159-.063-.7719.2073l-2.023 3.5038c-1.464-.6661-3.111-1.0402-4.8753-1.0402s-3.4113.3741-4.8753 1.0402L5.1017 5.3007c-.156-.2703-.5015-.3634-.7719-.2073-.2703.156-.3633.5015-.2073.7718l1.996 3.4572C2.6847 11.2335.3435 15.2285 0 19.8667h24c-.3435-4.6382-2.6847-8.6332-6.1185-10.5453"/>
+                            </svg>
                             Android
                         </button>
                         <button type="button" class="guide-tab-btn" onclick="switchGuideTab('windows', this)">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
+                            </svg>
                             Windows
                         </button>
                         <button type="button" class="guide-tab-btn" onclick="switchGuideTab('linux', this)">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12.001 0C8.825 0 7.37 2.185 7.159 4.394c-.033.352-.008.777.018 1.157-.866.528-1.503 1.458-1.503 2.766 0 1.258.604 2.19 1.438 2.736.03.88.22 1.83.565 2.657-1.127.398-2.222.955-3.072 1.777C3.473 16.57 3 17.973 3 19.5c0 .64.12 1.22.383 1.714.267.502.668.857 1.168 1.071.993.426 2.316.5 3.8.397.666-.046 1.365-.145 2.062-.294.526.376 1.077.568 1.588.604.51.036 1.06-.118 1.587-.604.697.149 1.396.248 2.062.294 1.484.103 2.807.03 3.8-.397.5-.214.901-.569 1.168-1.071.263-.494.383-1.074.383-1.714 0-1.527-.473-2.93-1.605-4.019-.85-.822-1.945-1.379-3.072-1.777.345-.827.535-1.777.565-2.657.834-.546 1.438-1.478 1.438-2.736 0-1.308-.637-2.238-1.503-2.766.026-.38.051-.805.018-1.157C16.632 2.185 15.177 0 12.001 0zm-.016 1.637c2.327 0 3.238 1.654 3.393 3.328.025.267 0 .584-.027.873-.62-.236-1.307-.373-2.029-.408-.432-.021-.88-.009-1.337.043-.457-.052-.905-.064-1.337-.043-.722.035-1.409.172-2.029.408-.027-.289-.052-.606-.027-.873.155-1.674 1.066-3.328 3.393-3.328z"/>
+                            </svg>
                             Linux (nmcli)
                         </button>
                     </div>
@@ -803,7 +803,12 @@
                                 <div class="guide-step-body">
                                     If connecting through home/NAT routers, run once in <strong>Command Prompt (Admin)</strong> and restart Windows:
                                     <div class="guide-code-box">
-                                        <button type="button" class="guide-code-copy" onclick="copySnippet(this)">Copy</button>
+                                        <button type="button" class="guide-code-copy" onclick="copySnippet(this)" title="Copy Command" aria-label="Copy Command">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
                                         <code>reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\PolicyAgent" /v "AssumeUDPEncapsulationContextOnSendRule" /t REG_DWORD /d 2 /f</code>
                                     </div>
                                 </div>
@@ -846,7 +851,12 @@
                                 <div class="guide-step-body">
                                     Install NetworkManager StrongSwan plugin:
                                     <div class="guide-code-box">
-                                        <button type="button" class="guide-code-copy" onclick="copySnippet(this)">Copy</button>
+                                        <button type="button" class="guide-code-copy" onclick="copySnippet(this)" title="Copy Command" aria-label="Copy Command">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
                                         <code>sudo apt update &amp;&amp; sudo apt install -y network-manager-strongswan libcharon-extra-plugins libcharon-extauth-plugins</code>
                                     </div>
                                 </div>
@@ -856,7 +866,12 @@
                                 <div class="guide-step-body">
                                     Create connection profile with your credentials:
                                     <div class="guide-code-box">
-                                        <button type="button" class="guide-code-copy" onclick="copySnippet(this)">Copy</button>
+                                        <button type="button" class="guide-code-copy" onclick="copySnippet(this)" title="Copy Command" aria-label="Copy Command">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
                                         <code>nmcli connection add type vpn vpn-type strongswan con-name "IKEv2-VPN" vpn.data "address={{ server_domain }}, method=eap, user={{ user.username }}, certificate=/etc/ssl/certs/ISRG_Root_X1.pem, virtual=yes" vpn.secrets "password={{ user.password }}"</code>
                                     </div>
                                 </div>
@@ -866,7 +881,12 @@
                                 <div class="guide-step-body">
                                     Start the VPN connection:
                                     <div class="guide-code-box">
-                                        <button type="button" class="guide-code-copy" onclick="copySnippet(this)">Copy</button>
+                                        <button type="button" class="guide-code-copy" onclick="copySnippet(this)" title="Copy Command" aria-label="Copy Command">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
                                         <code>nmcli connection up "IKEv2-VPN"</code>
                                     </div>
                                 </div>
@@ -967,20 +987,6 @@
             }
         }
 
-        function copySubConnectionInfo() {
-            const server = document.getElementById('subServerVal').innerText.trim();
-            const username = document.getElementById('subUserVal').innerText.trim();
-            const password = document.getElementById('subPassVal').innerText.trim();
-            const text = `🌐 Server: ${server}\n👤 Username: ${username}\n🔑 Password: ${password}\n📱 Device Limit: {{ user.max_devices }} Devices`;
-
-            navigator.clipboard.writeText(text).then(() => {
-                const btnText = document.getElementById('subCopyAllBtnText');
-                const orig = btnText.innerText;
-                btnText.innerText = 'Copied! ✓';
-                setTimeout(() => { btnText.innerText = orig; }, 2000);
-            });
-        }
-
         function switchGuideTab(tabId, btn) {
             document.querySelectorAll('.guide-tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.guide-tab-content').forEach(c => c.classList.remove('active'));
@@ -996,9 +1002,9 @@
             if (!codeEl) return;
             const text = codeEl.innerText.trim();
             navigator.clipboard.writeText(text).then(() => {
-                const orig = btn.innerText;
-                btn.innerText = 'Copied! ✓';
-                setTimeout(() => { btn.innerText = orig; }, 1800);
+                const orig = btn.innerHTML;
+                btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+                setTimeout(() => { btn.innerHTML = orig; }, 1800);
             });
         }
 
