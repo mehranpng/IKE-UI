@@ -1403,17 +1403,30 @@
         }
 
         function handleSort(col) {
+            const isDescDefault = (col === 'traffic' || col === 'account_status' || col === 'live_status');
+
             if (currentSortColumn !== col) {
                 currentSortColumn = col;
-                currentSortDirection = (col === 'traffic' || col === 'account_status' || col === 'live_status') ? 'desc' : 'asc';
+                currentSortDirection = isDescDefault ? 'desc' : 'asc';
             } else {
-                if (currentSortDirection === 'asc') {
-                    currentSortDirection = 'desc';
-                } else if (currentSortDirection === 'desc') {
-                    currentSortDirection = 'none';
-                    currentSortColumn = null;
+                if (isDescDefault) {
+                    if (currentSortDirection === 'desc') {
+                        currentSortDirection = 'asc';
+                    } else if (currentSortDirection === 'asc') {
+                        currentSortDirection = 'none';
+                        currentSortColumn = null;
+                    } else {
+                        currentSortDirection = 'desc';
+                    }
                 } else {
-                    currentSortDirection = 'asc';
+                    if (currentSortDirection === 'asc') {
+                        currentSortDirection = 'desc';
+                    } else if (currentSortDirection === 'desc') {
+                        currentSortDirection = 'none';
+                        currentSortColumn = null;
+                    } else {
+                        currentSortDirection = 'asc';
+                    }
                 }
             }
             currentPage = 1;
