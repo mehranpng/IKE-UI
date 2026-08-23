@@ -60,7 +60,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.7.0"
+APP_VERSION = "1.7.1"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600  # 3 days in seconds (259200s)
 
@@ -1646,7 +1646,7 @@ def add_user():
         sync_ipsec_secrets()
 
         traffic_display = f"{max_traffic_gb} GB" if max_traffic_gb > 0 else "Unlimited"
-        expire_display = f"{duration_days} Days" if duration_days > 0 else "Lifetime (Unlimited)"
+        expire_display = f"{duration_days} Days" if duration_days > 0 else "∞ Lifetime"
 
         if is_ajax:
             return jsonify({
@@ -1719,7 +1719,7 @@ def edit_user(user_id):
     raw_days = request.form.get("duration_days", "").strip()
     if raw_days == "":
         new_expire = None
-        expire_display = "Lifetime (Unlimited)"
+        expire_display = "∞ Lifetime"
         time_rem = "Unlimited"
         rem_days = ""
     else:
