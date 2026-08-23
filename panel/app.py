@@ -1,5 +1,6 @@
 import os
 import sys
+import math
 import time
 import datetime
 import sqlite3
@@ -60,7 +61,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.7.1"
+APP_VERSION = "1.7.2"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600  # 3 days in seconds (259200s)
 
@@ -1495,24 +1496,49 @@ def dashboard():
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users ORDER BY id DESC")
-        users = cursor.fetchall()
+        
+        cursor.execute("SELECT COUNT(*) as total FROM users")
+        total_row = cursor.fetchone()
+        total_users = total_row["total"] if total_row else 0
+
+        cursor.execute("SELECT COUNT(*) as active FROM users WHERE is_active = 1")
+        active_row = cursor.fetchone()
+        active_users = active_row["active"] if active_row else 0
+
+        cursor.execute("SELECT COALESCE(SUM(used_traffic_bytes), 0) as total_traf FROM users")
+        traf_row = cursor.fetchone()
+        total_traffic_bytes = traf_row["total_traf"] if traf_row else 0
+
+        cursor.execute("SELECT * FROM users ORDER BY id DESC LIMIT 10")
+        initial_users = cursor.fetchall()
         conn.close()
     except Exception as e:
-        users = []
-        print(f"[!] Error fetching users: {e}", file=sys.stderr)
+        total_users = 0
+        active_users = 0
+        total_traffic_bytes = 0
+        initial_users = []
+        print(f"[!] Error fetching dashboard data: {e}", file=sys.stderr)
 
     online = get_online_users()
 
-    total_users = len(users)
-    active_users = sum(1 for u in users if (u["is_active"] or 0) == 1)
-    online_count = sum(1 for u in users if (u["is_active"] or 0) == 1 and u["username"] in online)
-    total_traffic_bytes = sum((u["used_traffic_bytes"] or 0) for u in users)
+    online_count = 0
+    if online:
+        try:
+            conn2 = get_db()
+            cur2 = conn2.cursor()
+            placeholders = ",".join("?" for _ in online.keys())
+            cur2.execute(f"SELECT COUNT(*) as cnt FROM users WHERE is_active = 1 AND username IN ({placeholders})", list(online.keys()))
+            cnt_row = cur2.fetchone()
+            online_count = cnt_row["cnt"] if cnt_row else 0
+            conn2.close()
+        except Exception:
+            online_count = len(online)
+
     sys_metrics = get_system_metrics()
-    users_formatted = [format_user_payload(u, online) for u in users]
+    users_formatted = [format_user_payload(dict(u), online) for u in initial_users]
 
     return render_template("dashboard.html",
-                           users=users,
+                           users=initial_users,
                            users_json=json.dumps(users_formatted),
                            online=online,
                            total_users=total_users,
@@ -1521,6 +1547,110 @@ def dashboard():
                            total_traffic_bytes=total_traffic_bytes,
                            sys=sys_metrics,
                            server_domain=SERVER_DOMAIN)
+
+@app.route("/api/users", methods=["GET"])
+@login_required
+def get_users_api():
+    try:
+        try:
+            page = int(request.args.get("page", 1))
+            if page < 1:
+                page = 1
+        except (ValueError, TypeError):
+            page = 1
+
+        try:
+            per_page = int(request.args.get("per_page", 10))
+            if per_page not in [10, 30, 50, 100]:
+                per_page = min(max(1, per_page), 100)
+        except (ValueError, TypeError):
+            per_page = 10
+
+        sort_col = request.args.get("sort", "").strip().lower()
+        sort_dir = request.args.get("dir", "").strip().lower()
+        if sort_dir not in ["asc", "desc"]:
+            sort_dir = "desc" if sort_col in ["traffic", "account_status", "live_status"] else "asc"
+
+        q = request.args.get("q", "").strip()
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        where_clauses = []
+        where_params = []
+
+        if q:
+            where_clauses.append("(LOWER(username) LIKE ? OR LOWER(COALESCE(note, '')) LIKE ?)")
+            where_params.extend([f"%{q.lower()}%", f"%{q.lower()}%"])
+
+        where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+        cursor.execute(f"SELECT COUNT(*) as total FROM users {where_sql}", where_params)
+        count_row = cursor.fetchone()
+        total_items = count_row["total"] if count_row else 0
+
+        total_pages = max(1, math.ceil(total_items / per_page)) if total_items > 0 else 1
+        if page > total_pages:
+            page = total_pages
+
+        online = get_online_users()
+
+        order_sql = "id DESC"
+        sort_params = []
+
+        if sort_col == "username":
+            order_sql = f"LOWER(username) {sort_dir.upper()}"
+        elif sort_col == "traffic":
+            order_sql = f"used_traffic_bytes {sort_dir.upper()}, id DESC"
+        elif sort_col == "expiration":
+            if sort_dir == "asc":
+                order_sql = "CASE WHEN expire_date IS NULL OR expire_date = '' THEN 1 ELSE 0 END ASC, expire_date ASC, id DESC"
+            else:
+                order_sql = "CASE WHEN expire_date IS NULL OR expire_date = '' THEN 1 ELSE 0 END DESC, expire_date DESC, id DESC"
+        elif sort_col == "account_status":
+            order_sql = f"is_active {sort_dir.upper()}, id DESC"
+        elif sort_col == "live_status":
+            online_unames = list(online.keys())
+            if online_unames:
+                placeholders = ",".join("?" for _ in online_unames)
+                if sort_dir == "asc":
+                    order_sql = f"CASE WHEN is_active = 1 AND username IN ({placeholders}) THEN 1 ELSE 0 END ASC, CASE WHEN last_online_at IS NULL OR last_online_at = '' THEN 1 ELSE 0 END ASC, last_online_at ASC, id DESC"
+                else:
+                    order_sql = f"CASE WHEN is_active = 1 AND username IN ({placeholders}) THEN 1 ELSE 0 END DESC, CASE WHEN last_online_at IS NULL OR last_online_at = '' THEN 1 ELSE 0 END ASC, last_online_at DESC, id DESC"
+                sort_params = list(online_unames)
+            else:
+                if sort_dir == "asc":
+                    order_sql = "CASE WHEN last_online_at IS NULL OR last_online_at = '' THEN 1 ELSE 0 END ASC, last_online_at ASC, id DESC"
+                else:
+                    order_sql = "CASE WHEN last_online_at IS NULL OR last_online_at = '' THEN 1 ELSE 0 END ASC, last_online_at DESC, id DESC"
+
+        offset = (page - 1) * per_page
+        query_sql = f"SELECT * FROM users {where_sql} ORDER BY {order_sql} LIMIT ? OFFSET ?"
+        full_params = where_params + sort_params + [per_page, offset]
+
+        cursor.execute(query_sql, full_params)
+        rows = cursor.fetchall()
+        conn.close()
+
+        users_formatted = [format_user_payload(dict(u), online) for u in rows]
+        start_index = (page - 1) * per_page if total_items > 0 else 0
+        end_index = min(start_index + per_page, total_items)
+
+        return jsonify({
+            "success": True,
+            "users": users_formatted,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total_items": total_items,
+                "total_pages": total_pages,
+                "start_index": start_index,
+                "end_index": end_index
+            }
+        })
+    except Exception as e:
+        print(f"[!] Error in get_users_api: {e}", file=sys.stderr)
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route("/api/stream")
 @login_required
@@ -1544,17 +1674,35 @@ def sse_stream():
                     break
 
                 online = get_online_users()
-                cursor.execute("SELECT * FROM users ORDER BY id DESC")
-                users = [dict(u) for u in cursor.fetchall()]
+
+                cursor.execute("SELECT COUNT(*) as total FROM users")
+                total_row = cursor.fetchone()
+                total_users = total_row["total"] if total_row else 0
+
+                cursor.execute("SELECT COUNT(*) as active FROM users WHERE is_active = 1")
+                active_row = cursor.fetchone()
+                active_users = active_row["active"] if active_row else 0
+
+                cursor.execute("SELECT COALESCE(SUM(used_traffic_bytes), 0) as total_traf FROM users")
+                traf_row = cursor.fetchone()
+                total_traffic_bytes = traf_row["total_traf"] if traf_row else 0
+
                 conn.close()
 
-                total_users = len(users)
-                active_users = sum(1 for u in users if (u.get("is_active") or 0) == 1)
-                online_count = sum(1 for u in users if (u.get("is_active") or 0) == 1 and u["username"] in online)
-                total_traffic_bytes = sum((u.get("used_traffic_bytes") or 0) for u in users)
-                sys_metrics = get_system_metrics()
+                online_count = 0
+                if online:
+                    try:
+                        conn2 = get_db()
+                        cur2 = conn2.cursor()
+                        placeholders = ",".join("?" for _ in online.keys())
+                        cur2.execute(f"SELECT COUNT(*) as cnt FROM users WHERE is_active = 1 AND username IN ({placeholders})", list(online.keys()))
+                        cnt_row = cur2.fetchone()
+                        online_count = cnt_row["cnt"] if cnt_row else 0
+                        conn2.close()
+                    except Exception:
+                        online_count = len(online)
 
-                user_list = [format_user_payload(u, online) for u in users]
+                sys_metrics = get_system_metrics()
 
                 payload = {
                     "stats": {
@@ -1564,8 +1712,7 @@ def sse_stream():
                         "total_traffic": format_bytes_val(total_traffic_bytes)
                     },
                     "sys": sys_metrics,
-                    "vpn_enabled": (get_system_config("vpn_enabled", "1") == "1"),
-                    "users": user_list
+                    "vpn_enabled": (get_system_config("vpn_enabled", "1") == "1")
                 }
 
                 yield f"data: {json.dumps(payload)}\n\n"

@@ -1264,10 +1264,14 @@
             }
         }
 
+        let activeInfoUserData = null;
+
         function openUserInfoModal(userId) {
             activeInfoUserId = userId;
-            const targetUser = allUsers.find(u => String(u.id) === String(userId));
+            activeInfoUserData = null;
+            const targetUser = currentUsers.find(u => String(u.id) === String(userId));
             if (targetUser) {
+                activeInfoUserData = targetUser;
                 updateUserInfoModalContent(targetUser);
             }
 
@@ -1275,6 +1279,7 @@
                 .then(r => r.ok ? r.json() : null)
                 .then(res => {
                     if (res && res.success && res.user && String(activeInfoUserId) === String(userId)) {
+                        activeInfoUserData = res.user;
                         updateUserInfoModalContent(res.user);
                     }
                 })
@@ -1286,14 +1291,14 @@
 
         function closeUserInfoModal() {
             activeInfoUserId = null;
+            activeInfoUserData = null;
             document.getElementById('userInfoModal').style.display = 'none';
             document.body.classList.remove('modal-open');
         }
 
         function onInfoModalEditClick() {
             if (!activeInfoUserId) return;
-            const uid = activeInfoUserId;
-            const targetUser = allUsers.find(u => String(u.id) === String(uid));
+            const targetUser = activeInfoUserData || currentUsers.find(u => String(u.id) === String(activeInfoUserId));
             closeUserInfoModal();
             if (targetUser) {
                 openEditModal(
@@ -1338,12 +1343,14 @@
             });
         }
 
-        let allUsers = {{ users_json | safe }};
+        let currentUsers = {{ users_json | safe }};
         let currentSortColumn = null;
         let currentSortDirection = 'none';
         let currentPage = 1;
         let perPage = 10;
         let searchQuery = '';
+        let searchTimeout = null;
+        let isFetchingUsers = false;
 
         const sortColumns = ['username', 'live_status', 'traffic', 'expiration', 'account_status'];
 
@@ -1392,13 +1399,13 @@
             perPage = parseInt(val) || 10;
             setCookie('ike_users_per_page', perPage);
             currentPage = 1;
-            renderUsersTable();
+            fetchUsers(true);
         }
 
         function handleSort(col) {
             if (currentSortColumn !== col) {
                 currentSortColumn = col;
-                currentSortDirection = 'asc';
+                currentSortDirection = (col === 'traffic' || col === 'account_status' || col === 'live_status') ? 'desc' : 'asc';
             } else {
                 if (currentSortDirection === 'asc') {
                     currentSortDirection = 'desc';
@@ -1410,7 +1417,8 @@
                 }
             }
             currentPage = 1;
-            renderUsersTable();
+            updateSortIcons();
+            fetchUsers(true);
         }
 
         function updateSortIcons() {
@@ -1436,75 +1444,25 @@
             });
         }
 
-        function compareUsers(a, b, col, dir) {
-            let res = 0;
-            if (col === 'username') {
-                const nameA = (a.username || '').toLowerCase();
-                const nameB = (b.username || '').toLowerCase();
-                res = nameA.localeCompare(nameB);
-            } else if (col === 'live_status') {
-                const onA = a.is_online ? 1 : 0;
-                const onB = b.is_online ? 1 : 0;
-                if (onA !== onB) {
-                    res = onB - onA;
-                } else if (onA === 1) {
-                    res = (b.device_count || 1) - (a.device_count || 1);
-                } else {
-                    const timeA = a.last_online_at ? (Date.parse(a.last_online_at) || 0) : 0;
-                    const timeB = b.last_online_at ? (Date.parse(b.last_online_at) || 0) : 0;
-                    res = timeB - timeA;
-                }
-            } else if (col === 'traffic') {
-                const bytesA = Number(a.used_traffic_bytes) || 0;
-                const bytesB = Number(b.used_traffic_bytes) || 0;
-                res = bytesB - bytesA;
-            } else if (col === 'expiration') {
-                const parseExp = (u) => {
-                    if (!u.expire_date) return Infinity;
-                    const t = Date.parse(u.expire_date);
-                    return isNaN(t) ? Infinity : t;
-                };
-                const expA = parseExp(a);
-                const expB = parseExp(b);
-                res = expA - expB;
-            } else if (col === 'account_status') {
-                const actA = (a.is_active === 1) ? 1 : 0;
-                const actB = (b.is_active === 1) ? 1 : 0;
-                res = actB - actA;
-            }
-
-            return dir === 'desc' ? -res : res;
-        }
-
-        function getFilteredAndSortedUsers() {
-            let list = [...allUsers];
-
-            if (searchQuery) {
-                const q = searchQuery.toLowerCase().trim();
-                list = list.filter(u => {
-                    const uname = (u.username || '').toLowerCase();
-                    const note = (u.note || '').toLowerCase();
-                    return uname.includes(q) || note.includes(q);
-                });
-            }
-
-            if (currentSortColumn && currentSortDirection !== 'none') {
-                list.sort((a, b) => compareUsers(a, b, currentSortColumn, currentSortDirection));
-            }
-
-            return list;
-        }
-
         function filterUsersTable() {
             const input = document.getElementById('userSearchInput');
-            searchQuery = input ? input.value : '';
-            currentPage = 1;
-            renderUsersTable();
+            const newQuery = input ? input.value : '';
+
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+
+            searchTimeout = setTimeout(() => {
+                searchQuery = newQuery;
+                currentPage = 1;
+                fetchUsers(true);
+            }, 300);
         }
 
         function goToPage(page) {
+            if (page < 1 || page === currentPage) return;
             currentPage = page;
-            renderUsersTable();
+            fetchUsers(true);
         }
 
         function getPageNumbers(curr, total) {
@@ -1664,26 +1622,11 @@
             `;
         }
 
-        function renderUsersTable() {
-            const list = getFilteredAndSortedUsers();
-            const totalItems = list.length;
-            const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
-
-            if (currentPage > totalPages) {
-                currentPage = totalPages;
-            }
-            if (currentPage < 1) {
-                currentPage = 1;
-            }
-
-            const startIndex = (currentPage - 1) * perPage;
-            const endIndex = Math.min(startIndex + perPage, totalItems);
-            const currentRows = list.slice(startIndex, endIndex);
-
+        function renderUsersTableFromData(users, pagination) {
             const tbody = document.getElementById('usersTableBody');
             if (!tbody) return;
 
-            if (totalItems === 0) {
+            if (!users || users.length === 0) {
                 tbody.innerHTML = `
                     <tr id="emptyRow">
                         <td colspan="6" class="text-center empty-state">
@@ -1693,7 +1636,7 @@
                 `;
             } else {
                 let html = '';
-                currentRows.forEach(u => {
+                users.forEach(u => {
                     html += `<tr id="user-row-${u.id}" class="user-table-row" data-username="${escapeHtml(u.username.toLowerCase())}" data-note="${escapeHtml((u.note || '').toLowerCase())}">
                         ${renderUserRowHTML(u)}
                     </tr>`;
@@ -1701,8 +1644,75 @@
                 tbody.innerHTML = html;
             }
 
-            renderPaginationControls(totalItems, totalPages, startIndex, endIndex);
-            updateSortIcons();
+            renderPaginationControls(
+                pagination.total_items,
+                pagination.total_pages,
+                pagination.start_index,
+                pagination.end_index
+            );
+        }
+
+        async function fetchUsers(showLoader = true) {
+            if (isFetchingUsers) return;
+            isFetchingUsers = true;
+
+            const tbody = document.getElementById('usersTableBody');
+            if (showLoader && tbody) {
+                tbody.innerHTML = `
+                    <tr class="table-loading-row">
+                        <td colspan="6">
+                            <div class="table-loader-content">
+                                <div class="table-loader-spinner"></div>
+                                <span>Loading users...</span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            try {
+                const params = new URLSearchParams();
+                params.set('page', currentPage);
+                params.set('per_page', perPage);
+                if (currentSortColumn && currentSortDirection !== 'none') {
+                    params.set('sort', currentSortColumn);
+                    params.set('dir', currentSortDirection);
+                }
+                if (searchQuery.trim()) {
+                    params.set('q', searchQuery.trim());
+                }
+
+                const res = await fetch(`${BASE_PATH}/api/users?${params.toString()}`);
+                const data = await res.json();
+
+                if (data.success) {
+                    currentUsers = data.users || [];
+                    const pagination = data.pagination || {
+                        total_items: currentUsers.length,
+                        total_pages: 1,
+                        start_index: 0,
+                        end_index: currentUsers.length
+                    };
+
+                    renderUsersTableFromData(currentUsers, pagination);
+
+                    if (activeInfoUserId) {
+                        const modalUser = currentUsers.find(u => String(u.id) === String(activeInfoUserId));
+                        if (modalUser) {
+                            activeInfoUserData = modalUser;
+                            updateUserInfoModalContent(modalUser);
+                        }
+                    }
+                } else {
+                    showToast(data.error || 'Failed to load users', 'error');
+                }
+            } catch (err) {
+                console.error('Error fetching users:', err);
+                showToast('Connection error while fetching users', 'error');
+            } finally {
+                isFetchingUsers = false;
+                updateSortIcons();
+            }
         }
 
         let lastCreatedPayload = null;
@@ -1772,29 +1782,8 @@
                     const succSubLinkEl = document.getElementById('succSubLink');
                     if (succSubLinkEl) succSubLinkEl.innerText = getUserSubLink(res.username);
 
-                    const newUser = {
-                        id: res.user_id,
-                        username: res.username,
-                        password: res.password,
-                        is_online: false,
-                        device_count: 0,
-                        last_online_at: '',
-                        last_seen_formatted: '',
-                        used_traffic_bytes: 0,
-                        used_traffic_formatted: '0 B',
-                        max_traffic_gb: res.max_traffic_gb || 0,
-                        traffic_percent: 0,
-                        expire_date: res.expire_date || '',
-                        remaining_days: res.remaining_days !== undefined ? res.remaining_days : '',
-                        time_remaining: res.expire || '∞ Lifetime',
-                        is_active: 1,
-                        max_devices: res.max_devices || 10,
-                        note: res.note || ''
-                    };
-
-                    allUsers.unshift(newUser);
                     currentPage = 1;
-                    renderUsersTable();
+                    fetchUsers(false);
 
                     const elTotal = document.getElementById('statTotalUsers');
                     if (elTotal) elTotal.innerText = parseInt(elTotal.innerText || '0') + 1;
@@ -1857,19 +1846,7 @@
                 const res = await response.json();
 
                 if (res.success) {
-                    const targetUser = allUsers.find(u => String(u.id) === String(currentEditUserId));
-                    if (targetUser) {
-                        targetUser.max_traffic_gb = res.max_traffic_gb || 0;
-                        targetUser.expire_date = res.expire_date || '';
-                        targetUser.remaining_days = res.remaining_days !== undefined ? res.remaining_days : '';
-                        targetUser.time_remaining = res.expire_date ? (res.time_remaining || res.expire) : '∞ Lifetime';
-                        targetUser.max_devices = res.max_devices || 10;
-                        targetUser.note = res.note || '';
-                        if (res.password_changed) {
-                            targetUser.password = res.password;
-                        }
-                    }
-                    renderUsersTable();
+                    fetchUsers(false);
 
                     if (res.password_changed) {
                         lastEditedPayload = res;
@@ -1941,7 +1918,7 @@
             const newState = checkbox.checked ? 1 : 0;
             const elActive = document.getElementById('statActiveUsers');
 
-            const targetUser = allUsers.find(u => String(u.id) === String(userId));
+            const targetUser = currentUsers.find(u => String(u.id) === String(userId));
             if (targetUser) {
                 targetUser.is_active = newState;
             }
@@ -2069,17 +2046,6 @@
                         if (elNetDown) elNetDown.innerText = '↓ ' + s.net_rx;
                         if (elNetUp) elNetUp.innerText = '↑ ' + s.net_tx;
                     }
-
-                    if (data.users && Array.isArray(data.users)) {
-                        allUsers = data.users;
-                        renderUsersTable();
-                        if (activeInfoUserId) {
-                            const currentModalUser = allUsers.find(u => String(u.id) === String(activeInfoUserId));
-                            if (currentModalUser) {
-                                updateUserInfoModalContent(currentModalUser);
-                            }
-                        }
-                    }
                 } catch(err) {
                     console.error("SSE parse error:", err);
                 }
@@ -2118,7 +2084,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             initPerPage();
-            renderUsersTable();
+            fetchUsers(false);
             initSSE();
             fetchGitHubStars();
 
