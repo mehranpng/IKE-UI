@@ -1409,31 +1409,17 @@
         }
 
         function handleSort(col) {
-            const isDescDefault = (col === 'traffic' || col === 'account_status' || col === 'live_status');
-
             if (currentSortColumn !== col) {
                 currentSortColumn = col;
-                currentSortDirection = isDescDefault ? 'desc' : 'asc';
+                currentSortDirection = 'desc';
+            } else if (currentSortDirection === 'desc') {
+                currentSortDirection = 'asc';
+            } else if (currentSortDirection === 'asc') {
+                currentSortDirection = 'none';
+                currentSortColumn = null;
             } else {
-                if (isDescDefault) {
-                    if (currentSortDirection === 'desc') {
-                        currentSortDirection = 'asc';
-                    } else if (currentSortDirection === 'asc') {
-                        currentSortDirection = 'none';
-                        currentSortColumn = null;
-                    } else {
-                        currentSortDirection = 'desc';
-                    }
-                } else {
-                    if (currentSortDirection === 'asc') {
-                        currentSortDirection = 'desc';
-                    } else if (currentSortDirection === 'desc') {
-                        currentSortDirection = 'none';
-                        currentSortColumn = null;
-                    } else {
-                        currentSortDirection = 'asc';
-                    }
-                }
+                currentSortColumn = col;
+                currentSortDirection = 'desc';
             }
             currentPage = 1;
             updateSortIcons();
@@ -1442,8 +1428,8 @@
 
         function updateSortIcons() {
             const iconUnsorted = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>`;
-            const iconAsc = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
-            const iconDesc = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
+            const iconUp = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
+            const iconDown = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
 
             sortColumns.forEach(col => {
                 const th = document.getElementById('th-' + col);
@@ -1451,12 +1437,12 @@
                 if (!th || !iconEl) return;
 
                 th.classList.remove('sorted-asc', 'sorted-desc');
-                if (currentSortColumn === col && currentSortDirection === 'asc') {
-                    th.classList.add('sorted-asc');
-                    iconEl.innerHTML = iconAsc;
-                } else if (currentSortColumn === col && currentSortDirection === 'desc') {
+                if (currentSortColumn === col && currentSortDirection === 'desc') {
                     th.classList.add('sorted-desc');
-                    iconEl.innerHTML = iconDesc;
+                    iconEl.innerHTML = iconUp;
+                } else if (currentSortColumn === col && currentSortDirection === 'asc') {
+                    th.classList.add('sorted-asc');
+                    iconEl.innerHTML = iconDown;
                 } else {
                     iconEl.innerHTML = iconUnsorted;
                 }
@@ -1747,8 +1733,19 @@
             return true;
         }
 
+        let currentFetchController = null;
+        let currentFetchSeq = 0;
+
         async function fetchUsers(showLoader = true) {
-            if (isFetchingUsers) return;
+            if (!showLoader && isFetchingUsers) return;
+
+            if (currentFetchController) {
+                try { currentFetchController.abort(); } catch(e) {}
+            }
+            currentFetchController = new AbortController();
+            const signal = currentFetchController.signal;
+            const thisSeq = ++currentFetchSeq;
+
             isFetchingUsers = true;
 
             const tbody = document.getElementById('usersTableBody');
@@ -1777,8 +1774,10 @@
                     params.set('q', searchQuery.trim());
                 }
 
-                const res = await fetch(`${BASE_PATH}/api/users?${params.toString()}`);
+                const res = await fetch(`${BASE_PATH}/api/users?${params.toString()}`, { signal });
                 const data = await res.json();
+
+                if (thisSeq !== currentFetchSeq) return;
 
                 if (data.success) {
                     currentUsers = data.users || [];
@@ -1817,11 +1816,14 @@
                     if (showLoader) showToast(data.error || 'Failed to load users', 'error');
                 }
             } catch (err) {
+                if (err.name === 'AbortError') return;
                 console.error('Error fetching users:', err);
                 if (showLoader) showToast('Connection error while fetching users', 'error');
             } finally {
-                isFetchingUsers = false;
-                updateSortIcons();
+                if (thisSeq === currentFetchSeq) {
+                    isFetchingUsers = false;
+                    updateSortIcons();
+                }
             }
         }
 
