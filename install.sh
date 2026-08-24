@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.7.2"
+APP_VERSION="1.7.3"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"
@@ -239,7 +239,7 @@ show_banner() {
         disk_ver=$(grep -oP '^APP_VERSION=["\x27]?\K[^"\x27\s]+' "${INSTALL_DIR}/install.sh" 2>/dev/null || true)
         if [ -n "$disk_ver" ]; then
             cur_ver="$disk_ver"
-            APP_VERSION="1.7.2"
+            APP_VERSION="1.7.3"
         fi
     fi
     echo -e "${PURPLE}${BOLD}"
@@ -1027,7 +1027,7 @@ RENEW_EOF
         new_ver=$(grep -oP '^APP_VERSION\s*=\s*["\x27]?\K[^"\x27\s]+' "${INSTALL_DIR}/panel/app.py" 2>/dev/null || true)
     fi
     if [ -n "$new_ver" ]; then
-        APP_VERSION="1.7.2"
+        APP_VERSION="1.7.3"
     fi
 
     if systemctl is-active --quiet ike-ui.service; then

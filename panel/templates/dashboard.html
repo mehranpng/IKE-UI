@@ -1275,18 +1275,24 @@
                 updateUserInfoModalContent(targetUser);
             }
 
-            fetch(`${BASE_PATH}/api/user/info/${userId}`)
-                .then(r => r.ok ? r.json() : null)
-                .then(res => {
-                    if (res && res.success && res.user && String(activeInfoUserId) === String(userId)) {
-                        activeInfoUserData = res.user;
-                        updateUserInfoModalContent(res.user);
-                    }
-                })
-                .catch(() => {});
+            refreshActiveUserInfoModal();
 
             document.getElementById('userInfoModal').style.display = 'flex';
             document.body.classList.add('modal-open');
+        }
+
+        async function refreshActiveUserInfoModal() {
+            if (!activeInfoUserId) return;
+            const targetId = activeInfoUserId;
+            try {
+                const res = await fetch(`${BASE_PATH}/api/user/info/${targetId}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data && data.success && data.user && String(activeInfoUserId) === String(targetId)) {
+                    activeInfoUserData = data.user;
+                    updateUserInfoModalContent(data.user);
+                }
+            } catch(e) {}
         }
 
         function closeUserInfoModal() {
@@ -1665,6 +1671,82 @@
             );
         }
 
+        function updateUserRowDOM(u) {
+            const row = document.getElementById(`user-row-${u.id}`);
+            if (!row) return false;
+
+            const maxDev = (u.max_devices && u.max_devices > 0) ? u.max_devices : 10;
+            const isOnline = (u.is_active === 1) && Boolean(u.is_online);
+            const devCnt = Math.min(u.device_count || 1, maxDev);
+            const onlineHtml = isOnline
+                ? `<span class="badge badge-online">${devCnt} / ${maxDev} Online</span>`
+                : `<span class="badge badge-neutral">Offline</span>${u.last_seen_formatted ? `<div class="sub-text">${escapeHtml(u.last_seen_formatted)}</div>` : ''}`;
+
+            const onlineCell = document.getElementById(`user-online-${u.id}`);
+            if (onlineCell && onlineCell.innerHTML !== onlineHtml) {
+                onlineCell.innerHTML = onlineHtml;
+            }
+
+            const trafUsedEl = document.getElementById(`user-traf-used-${u.id}`);
+            if (trafUsedEl && trafUsedEl.innerText !== (u.used_traffic_formatted || '0 B')) {
+                trafUsedEl.innerText = u.used_traffic_formatted || '0 B';
+            }
+
+            const maxTrafText = (u.max_traffic_gb && u.max_traffic_gb > 0)
+                ? `/ ${u.max_traffic_gb} GB`
+                : '/ ∞ Unlimited';
+            const trafMaxEl = document.getElementById(`user-traf-max-${u.id}`);
+            if (trafMaxEl && trafMaxEl.innerText !== maxTrafText) {
+                trafMaxEl.innerText = maxTrafText;
+            }
+
+            const trafTrack = document.getElementById(`user-traf-track-${u.id}`);
+            const trafBar = document.getElementById(`user-traf-bar-${u.id}`);
+            if (trafTrack && trafBar) {
+                if (u.max_traffic_gb && u.max_traffic_gb > 0) {
+                    trafTrack.style.display = '';
+                    const pct = Math.min(100, Math.max(0, u.traffic_percent || 0));
+                    trafBar.style.width = pct + '%';
+                    trafBar.className = 'progress-bar' + (pct > 90 ? ' progress-danger' : (pct > 70 ? ' progress-warning' : ''));
+                } else {
+                    trafTrack.style.display = 'none';
+                    trafBar.style.width = '0%';
+                }
+            }
+
+            const expTitle = u.expire_date ? u.time_remaining : '∞ Lifetime';
+            const expEl = document.getElementById(`user-exp-${u.id}`);
+            if (expEl && expEl.innerText !== expTitle) {
+                expEl.innerText = expTitle;
+            }
+
+            const expSubEl = document.getElementById(`user-exp-sub-${u.id}`);
+            if (expSubEl) {
+                const expSubText = u.expire_date ? u.expire_date.substring(0, 10) : '';
+                if (expSubEl.innerText !== expSubText) {
+                    expSubEl.innerText = expSubText;
+                }
+            }
+
+            const statusEl = document.getElementById(`user-status-${u.id}`);
+            const statusClass = u.is_active === 1 ? 'status-pill status-active' : 'status-pill status-disabled';
+            const statusText = u.is_active === 1 ? 'Active' : 'Disabled';
+            if (statusEl && (statusEl.className !== statusClass || statusEl.innerText !== statusText)) {
+                statusEl.className = statusClass;
+                statusEl.innerText = statusText;
+            }
+
+            const toggleInput = document.getElementById(`user-toggle-${u.id}`);
+            if (toggleInput && !toggleInput.disabled) {
+                const shouldBeChecked = (u.is_active === 1);
+                if (toggleInput.checked !== shouldBeChecked) {
+                    toggleInput.checked = shouldBeChecked;
+                }
+            }
+
+            return true;
+        }
+
         async function fetchUsers(showLoader = true) {
             if (isFetchingUsers) return;
             isFetchingUsers = true;
@@ -1707,7 +1789,22 @@
                         end_index: currentUsers.length
                     };
 
-                    renderUsersTableFromData(currentUsers, pagination);
+                    const currentDomRows = tbody ? Array.from(tbody.querySelectorAll('tr.user-table-row')) : [];
+                    const currentDomRowIds = currentDomRows.map(r => r.id);
+                    const newRowIds = currentUsers.map(u => `user-row-${u.id}`);
+                    const sameRows = !showLoader && (currentDomRowIds.length === newRowIds.length) && currentDomRowIds.length > 0 && currentDomRowIds.every((id, idx) => id === newRowIds[idx]);
+
+                    if (sameRows) {
+                        currentUsers.forEach(u => updateUserRowDOM(u));
+                        renderPaginationControls(
+                            pagination.total_items,
+                            pagination.total_pages,
+                            pagination.start_index,
+                            pagination.end_index
+                        );
+                    } else {
+                        renderUsersTableFromData(currentUsers, pagination);
+                    }
 
                     if (activeInfoUserId) {
                         const modalUser = currentUsers.find(u => String(u.id) === String(activeInfoUserId));
@@ -1717,11 +1814,11 @@
                         }
                     }
                 } else {
-                    showToast(data.error || 'Failed to load users', 'error');
+                    if (showLoader) showToast(data.error || 'Failed to load users', 'error');
                 }
             } catch (err) {
                 console.error('Error fetching users:', err);
-                showToast('Connection error while fetching users', 'error');
+                if (showLoader) showToast('Connection error while fetching users', 'error');
             } finally {
                 isFetchingUsers = false;
                 updateSortIcons();
@@ -2058,6 +2155,14 @@
                         const elNetUp = document.getElementById('sysNetUp');
                         if (elNetDown) elNetDown.innerText = '↓ ' + s.net_rx;
                         if (elNetUp) elNetUp.innerText = '↑ ' + s.net_tx;
+                    }
+
+                    if (!searchTimeout) {
+                        fetchUsers(false);
+                    }
+
+                    if (activeInfoUserId) {
+                        refreshActiveUserInfoModal();
                     }
                 } catch(err) {
                     console.error("SSE parse error:", err);

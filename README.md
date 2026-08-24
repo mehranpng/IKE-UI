@@ -3,7 +3,7 @@
 > IKEv2/IPsec VPN Server & Web Management Panel
 
 <p align="left">
-  <img src="https://img.shields.io/badge/Release-v1.7.2-7452ff?style=flat-square" alt="Version 1.7.1" />
+  <img src="https://img.shields.io/badge/Release-v1.7.3-7452ff?style=flat-square" alt="Version 1.7.1" />
   <img src="https://img.shields.io/badge/VPN-IKEv2%20%2F%20IPsec-blue?style=flat-square" alt="IKEv2 VPN" />
   <img src="https://img.shields.io/badge/SSL-Let's%20Encrypt%20Auto-brightgreen?style=flat-square" alt="Let's Encrypt" />
   <img src="https://img.shields.io/badge/OS-Ubuntu%20%2F%20Debian-orange?style=flat-square" alt="Ubuntu / Debian" />
