@@ -61,7 +61,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.7.3"
+APP_VERSION = "1.7.4"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600  # 3 days in seconds (259200s)
 
@@ -1451,15 +1451,15 @@ def sub_change_password():
         flash(msg, "danger")
         return redirect(url_for("sub_portal"))
 
-    if len(new_pass) > 24:
-        msg = "Password length cannot exceed 24 characters!"
+    if len(new_pass) < 6:
+        msg = "Password must be at least 6 characters!"
         if is_ajax:
             return jsonify({"success": False, "error": msg}), 400
         flash(msg, "danger")
         return redirect(url_for("sub_portal"))
 
-    if len(new_pass) < 1:
-        msg = "Password cannot be empty!"
+    if len(new_pass) > 24:
+        msg = "Password length cannot exceed 24 characters!"
         if is_ajax:
             return jsonify({"success": False, "error": msg}), 400
         flash(msg, "danger")
@@ -2351,8 +2351,13 @@ def update_path():
 @login_required
 def toggle_vpn_service():
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.best == "application/json"
-    current_status = (get_system_config("vpn_enabled", "1") == "1")
-    new_status = not current_status
+    data = request.get_json(silent=True) or {}
+    if "state" in data:
+        new_status = bool(data["state"])
+    else:
+        current_status = (get_system_config("vpn_enabled", "1") == "1")
+        new_status = not current_status
+
     set_system_config("vpn_enabled", "1" if new_status else "0")
     sync_ipsec_secrets()
     if not new_status:
