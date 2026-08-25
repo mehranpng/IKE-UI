@@ -528,7 +528,9 @@ def update_sa_live_speed(sa_id, total_in, total_out):
     with sa_speed_lock:
         prev = sa_live_speeds.get(sa_id)
         if prev:
-            dt = max(0.5, now_t - prev['last_time'])
+            dt = now_t - prev['last_time']
+            if dt < 0.8:
+                return
             delta_in = max(0, total_in - prev['last_in'])
             delta_out = max(0, total_out - prev['last_out'])
             up_rate = delta_in / dt
@@ -558,7 +560,9 @@ def update_user_live_speed(username, total_in, total_out):
     with user_speed_lock:
         prev = user_live_speeds.get(username)
         if prev:
-            dt = max(0.5, now_t - prev['last_time'])
+            dt = now_t - prev['last_time']
+            if dt < 0.8:
+                return
             delta_in = max(0, total_in - prev['last_in'])
             delta_out = max(0, total_out - prev['last_out'])
             up_rate = delta_in / dt
@@ -1675,32 +1679,19 @@ def sse_stream():
 
                 online = get_online_users()
 
-                cursor.execute("SELECT COUNT(*) as total FROM users")
-                total_row = cursor.fetchone()
-                total_users = total_row["total"] if total_row else 0
-
-                cursor.execute("SELECT COUNT(*) as active FROM users WHERE is_active = 1")
-                active_row = cursor.fetchone()
-                active_users = active_row["active"] if active_row else 0
-
-                cursor.execute("SELECT COALESCE(SUM(used_traffic_bytes), 0) as total_traf FROM users")
-                traf_row = cursor.fetchone()
-                total_traffic_bytes = traf_row["total_traf"] if traf_row else 0
-
+                cursor.execute("SELECT * FROM users ORDER BY id DESC")
+                all_users = cursor.fetchall()
                 conn.close()
 
-                online_count = 0
-                if online:
-                    try:
-                        conn2 = get_db()
-                        cur2 = conn2.cursor()
-                        placeholders = ",".join("?" for _ in online.keys())
-                        cur2.execute(f"SELECT COUNT(*) as cnt FROM users WHERE is_active = 1 AND username IN ({placeholders})", list(online.keys()))
-                        cnt_row = cur2.fetchone()
-                        online_count = cnt_row["cnt"] if cnt_row else 0
-                        conn2.close()
-                    except Exception:
-                        online_count = len(online)
+                total_users = len(all_users)
+                active_users = sum(1 for u in all_users if (u["is_active"] or 0) == 1)
+                total_traffic_bytes = sum((u["used_traffic_bytes"] or 0) for u in all_users)
+                online_count = sum(1 for u in all_users if (u["is_active"] or 0) == 1 and u["username"] in online) if online else 0
+
+                users_live = {
+                    u["id"]: format_user_payload(dict(u), online)
+                    for u in all_users
+                }
 
                 sys_metrics = get_system_metrics()
 
@@ -1712,7 +1703,8 @@ def sse_stream():
                         "total_traffic": format_bytes_val(total_traffic_bytes)
                     },
                     "sys": sys_metrics,
-                    "vpn_enabled": (get_system_config("vpn_enabled", "1") == "1")
+                    "vpn_enabled": (get_system_config("vpn_enabled", "1") == "1"),
+                    "users_live": users_live
                 }
 
                 yield f"data: {json.dumps(payload)}\n\n"

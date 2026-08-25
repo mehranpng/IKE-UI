@@ -1275,24 +1275,18 @@
                 updateUserInfoModalContent(targetUser);
             }
 
-            refreshActiveUserInfoModal();
+            fetch(`${BASE_PATH}/api/user/info/${userId}`)
+                .then(r => r.ok ? r.json() : null)
+                .then(res => {
+                    if (res && res.success && res.user && String(activeInfoUserId) === String(userId)) {
+                        activeInfoUserData = res.user;
+                        updateUserInfoModalContent(res.user);
+                    }
+                })
+                .catch(() => {});
 
             document.getElementById('userInfoModal').style.display = 'flex';
             document.body.classList.add('modal-open');
-        }
-
-        async function refreshActiveUserInfoModal() {
-            if (!activeInfoUserId) return;
-            const targetId = activeInfoUserId;
-            try {
-                const res = await fetch(`${BASE_PATH}/api/user/info/${targetId}`);
-                if (!res.ok) return;
-                const data = await res.json();
-                if (data && data.success && data.user && String(activeInfoUserId) === String(targetId)) {
-                    activeInfoUserData = data.user;
-                    updateUserInfoModalContent(data.user);
-                }
-            } catch(e) {}
         }
 
         function closeUserInfoModal() {
@@ -2159,12 +2153,21 @@
                         if (elNetUp) elNetUp.innerText = '↑ ' + s.net_tx;
                     }
 
-                    if (!searchTimeout) {
-                        fetchUsers(false);
-                    }
+                    if (data.users_live) {
+                        if (currentUsers && Array.isArray(currentUsers)) {
+                            currentUsers.forEach(u => {
+                                const live = data.users_live[u.id];
+                                if (live) {
+                                    Object.assign(u, live);
+                                    updateUserRowDOM(u);
+                                }
+                            });
+                        }
 
-                    if (activeInfoUserId) {
-                        refreshActiveUserInfoModal();
+                        if (activeInfoUserId && data.users_live[activeInfoUserId]) {
+                            activeInfoUserData = data.users_live[activeInfoUserId];
+                            updateUserInfoModalContent(data.users_live[activeInfoUserId]);
+                        }
                     }
                 } catch(err) {
                     console.error("SSE parse error:", err);
