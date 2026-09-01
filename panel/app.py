@@ -703,25 +703,29 @@ def fetch_online_users_raw():
             if not matched_user:
                 continue
 
-            # Parse individual CHILD_SAs within this IKE_SA block to uniquely track traffic by SPI
-            child_blocks = {}
-            current_child_id = None
+            child_blocks = []
+            curr_child_lines = []
             for bline in block_lines:
-                ch_m = re.search(r'(?:^|\s)[\w.-]*\{(\d+)\}:\s*(.*)$', bline)
-                if ch_m:
-                    current_child_id = ch_m.group(1)
-                    if current_child_id not in child_blocks:
-                        child_blocks[current_child_id] = []
-                    child_blocks[current_child_id].append(bline)
-                elif current_child_id is not None and (bline.startswith(' ') or bline.startswith('\t')):
-                    child_blocks[current_child_id].append(bline)
+                if re.search(r'(?:^|\s)[\w.-]*\{\d+\}:', bline):
+                    if re.search(r'\bINSTALLED\b|\bSPIs?:', bline, re.IGNORECASE):
+                        if curr_child_lines:
+                            child_blocks.append(curr_child_lines)
+                        curr_child_lines = [bline]
+                    else:
+                        if curr_child_lines:
+                            curr_child_lines.append(bline)
+                elif curr_child_lines and (bline.startswith(' ') or bline.startswith('\t')):
+                    curr_child_lines.append(bline)
+
+            if curr_child_lines:
+                child_blocks.append(curr_child_lines)
 
             child_sas = {}
             bytes_in = 0
             bytes_out = 0
 
             if child_blocks:
-                for ch_id, ch_lines in child_blocks.items():
+                for idx, ch_lines in enumerate(child_blocks, start=1):
                     ch_text = "\n".join(ch_lines)
                     c_in = 0
                     c_out = 0
@@ -731,7 +735,6 @@ def fetch_online_users_raw():
                             c_in += int(bm.group(1))
                             c_out += int(bm.group(2))
 
-                    # Extract SPIs if present: e.g. "ESP in UDP SPIs: c3d4e5f6_i c7d8e9f0_o"
                     esp_spis = re.findall(r'\b([0-9a-fA-F]{4,16}_[io])\b', ch_text)
                     if len(esp_spis) >= 2:
                         c_key = f"spi_{esp_spis[0]}--{esp_spis[1]}"
@@ -742,11 +745,11 @@ def fetch_online_users_raw():
                         if spi_generic:
                             c_key = f"spi_{spi_generic.group(1)}--{spi_generic.group(2)}"
                         else:
-                            c_key = f"sa_{sa_id}_ch_{ch_id}"
+                            c_key = f"sa_{sa_id}_ch_{idx}"
 
                     child_sas[c_key] = {
                         "child_key": c_key,
-                        "child_id": ch_id,
+                        "child_id": str(idx),
                         "bytes_in": c_in,
                         "bytes_out": c_out,
                         "bytes_total": c_in + c_out
@@ -754,7 +757,6 @@ def fetch_online_users_raw():
                     bytes_in += c_in
                     bytes_out += c_out
             else:
-                # Fallback if no child lines found but bytes exist in block_lines
                 for bline in block_lines:
                     bm = re.search(r'(\d+)\s+bytes_i.*?(\d+)\s+bytes_o', bline)
                     if bm:
@@ -864,36 +866,39 @@ def accounting_daemon():
 
             now = datetime.datetime.now()
             now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+            now_ts = time.time()
 
             conn = get_db()
             cursor = conn.cursor()
 
-            active_child_keys = set()
             user_deltas = {}
 
             if not daemon_warmup_done:
-                # Baseline warmup: Initialize existing active child SAs without charging delta
                 for username, data in online.items():
                     for sa_id, sa_data in data.get("sas", {}).items():
                         for child_key, c_data in sa_data.get("child_sas", {}).items():
-                            active_child_keys.add(child_key)
-                            last_seen_child_bytes[child_key] = c_data.get("bytes_total", 0)
+                            last_seen_child_bytes[child_key] = {
+                                "bytes": c_data.get("bytes_total", 0),
+                                "last_seen": now_ts
+                            }
                 daemon_warmup_done = True
             else:
                 for username, data in online.items():
                     for sa_id, sa_data in data.get("sas", {}).items():
                         for child_key, c_data in sa_data.get("child_sas", {}).items():
-                            active_child_keys.add(child_key)
                             curr_bytes = c_data.get("bytes_total", 0)
-                            prev_bytes = last_seen_child_bytes.get(child_key, 0)
-
-                            delta = 0
-                            if curr_bytes >= prev_bytes:
-                                delta = curr_bytes - prev_bytes
+                            
+                            if child_key in last_seen_child_bytes:
+                                prev_bytes = last_seen_child_bytes[child_key]["bytes"]
+                                delta = max(0, curr_bytes - prev_bytes)
                             else:
                                 delta = curr_bytes
 
-                            last_seen_child_bytes[child_key] = curr_bytes
+                            last_seen_child_bytes[child_key] = {
+                                "bytes": curr_bytes,
+                                "last_seen": now_ts
+                            }
+
                             if delta > 0:
                                 user_deltas[username] = user_deltas.get(username, 0) + delta
 
@@ -919,10 +924,11 @@ def accounting_daemon():
                     WHERE username = ?
                 """, (delta, username))
 
-            if daemon_warmup_done:
-                for child_key in list(last_seen_child_bytes.keys()):
-                    if child_key not in active_child_keys:
-                        del last_seen_child_bytes[child_key]
+            if len(last_seen_child_bytes) > 100:
+                cutoff_ts = now_ts - 86400
+                expired_keys = [k for k, v in last_seen_child_bytes.items() if v.get("last_seen", 0) < cutoff_ts]
+                for k in expired_keys:
+                    del last_seen_child_bytes[k]
 
             conn.commit()
 
