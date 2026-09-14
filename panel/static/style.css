@@ -330,8 +330,9 @@ body.modal-open {
 .api-key-reveal-row { display: flex; gap: .5rem; margin-top: .45rem; }
 .api-key-reveal-row input { min-width: 0; flex: 1; color: var(--accent-cyan); font-family: var(--font-mono); font-size: .78rem; font-weight: 700; }
 .api-key-reveal-row .btn-icon { width: 44px; height: 44px; }
-.api-doc-content pre { position: relative; padding-top: 2.65rem; }
-.api-doc-copy-btn { position: absolute; top: .55rem; right: .55rem; padding: .3rem .55rem; font-size: .72rem; }
+.api-doc-code { position: relative; }
+.api-doc-code pre { padding-top: 2.65rem; }
+.api-doc-copy-btn { position: absolute; top: .55rem; right: .55rem; width: 34px; height: 32px; min-width: 34px; padding: 0; z-index: 2; }
 
 @media (max-width: 640px) {
     .api-key-panel, .api-base-url-row { align-items: flex-start; flex-direction: column; }
@@ -367,6 +368,7 @@ body.modal-open {
     .api-doc-content h2 { font-size: 1.1rem; }
     .api-doc-content pre { font-size: .72rem; padding: 2.5rem .7rem .7rem; }
     .api-doc-content pre code { font-size: .72rem; }
+    .api-doc-copy-btn { width: 34px; min-width: 34px; }
     .api-doc-table th, .api-doc-table td { padding: .55rem; font-size: .75rem; }
     .api-key-modal-content { width: calc(100% - 1rem); }
 }

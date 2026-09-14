@@ -100,7 +100,7 @@
                                 <span class="settings-row-title">API key</span>
                                 {% if api_key_created %}<span class="settings-badge-cyan">Created</span>{% else %}<span class="settings-badge-yellow">Not created</span>{% endif %}
                             </div>
-                            <div class="api-key-value">{% if api_key_created %}API key is configured{% else %}No API key configured{% endif %}</div>
+                            <div class="api-key-value">{% if api_key_created %}{{ api_key_mask }}{% else %}No API key configured{% endif %}</div>
                             <div class="settings-row-desc">Creating a new key immediately disables the previous key. The full key is shown only in the confirmation popup.</div>
                         </div>
                         <div class="api-key-actions">

@@ -93,20 +93,31 @@
     document.querySelectorAll('.api-doc-content pre').forEach((block) => {
         const code = block.textContent.trim();
         if (!code.includes('curl')) return;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'api-doc-code';
+        block.parentNode.insertBefore(wrapper, block);
+        wrapper.appendChild(block);
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'btn btn-secondary api-doc-copy-btn';
-        button.textContent = 'Copy command';
+        button.className = 'btn btn-secondary btn-icon api-doc-copy-btn';
+        button.setAttribute('aria-label', 'Copy command');
+        button.title = 'Copy command';
+        button.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
         button.addEventListener('click', async () => {
             try {
                 await navigator.clipboard.writeText(code);
-                button.textContent = 'Copied';
+                button.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+                button.title = 'Copied';
             } catch (error) {
-                button.textContent = 'Copy failed';
+                button.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+                button.title = 'Copy failed';
             }
-            setTimeout(() => { button.textContent = 'Copy command'; }, 1500);
+            setTimeout(() => {
+                button.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+                button.title = 'Copy command';
+            }, 1500);
         });
-        block.appendChild(button);
+        wrapper.appendChild(button);
     });
 </script>
 </body>
