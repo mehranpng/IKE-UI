@@ -122,7 +122,7 @@ curl -X POST 'https://your-domain.example/api/v1/users/12/password' \
   -d '{"password":"new-password"}'
 ```
 
-## Enable or disable
+## Enable or disable a user
 
 ```bash
 curl -X POST 'https://your-domain.example/api/v1/users/12/status' \

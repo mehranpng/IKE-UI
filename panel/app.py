@@ -2504,12 +2504,6 @@ def settings():
 @login_required
 def create_api_key():
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.best == "application/json"
-    if get_system_config("api_key_hash", ""):
-        msg = "An API key has already been created. It cannot be displayed again."
-        if is_ajax:
-            return jsonify({"success": False, "error": msg}), 409
-        flash(msg, "warning")
-        return redirect(url_for("settings"))
     api_key = generate_api_key()
     set_system_config("api_key_hash", hashlib.sha256(api_key.encode("utf-8")).hexdigest())
     set_system_config("api_key_display", f"{api_key[:7]}{'•' * 16}{api_key[-4:]}")

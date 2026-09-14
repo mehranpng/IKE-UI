@@ -306,10 +306,6 @@ body.modal-open {
     border-radius: var(--radius-md);
 }
 
-.api-key-panel.is-created {
-    border-color: rgba(0, 240, 255, 0.35);
-}
-
 .api-key-panel-copy { min-width: 0; }
 .api-key-value {
     margin-top: 0.55rem;
@@ -327,7 +323,15 @@ body.modal-open {
     white-space: nowrap;
 }
 .api-doc-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
-.api-warning { margin: 0; }
+.api-key-modal-content { max-width: 500px; }
+.api-modal-icon { color: var(--accent-yellow); font-size: 2rem; line-height: 1; margin-bottom: .75rem; }
+.api-modal-success { color: var(--success); font-weight: 800; margin-bottom: 1rem; }
+.api-modal-note { margin-top: .85rem; padding: .75rem; border-left: 3px solid var(--accent-yellow); background: var(--warning-bg); color: #ffe69a; font-size: .8rem; line-height: 1.5; }
+.api-key-reveal-row { display: flex; gap: .5rem; margin-top: .45rem; }
+.api-key-reveal-row input { min-width: 0; flex: 1; color: var(--accent-cyan); font-family: var(--font-mono); font-size: .78rem; font-weight: 700; }
+.api-key-reveal-row .btn-icon { width: 44px; height: 44px; }
+.api-doc-content pre { position: relative; padding-top: 2.65rem; }
+.api-doc-copy-btn { position: absolute; top: .55rem; right: .55rem; padding: .3rem .55rem; font-size: .72rem; }
 
 @media (max-width: 640px) {
     .api-key-panel, .api-base-url-row { align-items: flex-start; flex-direction: column; }
@@ -353,7 +357,19 @@ body.modal-open {
 .api-doc-callout { border-left: 3px solid var(--accent-yellow); background: var(--warning-bg); color: #ffe69a; padding: .85rem 1rem; margin: 1rem 0; }
 .api-doc-content ul { padding-left: 1.25rem; }
 
-@media (max-width: 640px) { .api-doc-header { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 640px) {
+    .api-doc-header { align-items: stretch; flex-direction: column; }
+    .api-doc-header .api-doc-actions { width: 100%; }
+    .api-doc-header .api-doc-actions .btn { flex: 1; }
+    .api-doc-page { padding: 1rem .75rem 2rem; }
+    .api-doc-content { padding: 1rem; box-shadow: 3px 3px 0 #000; }
+    .api-doc-content h1 { font-size: 1.7rem; overflow-wrap: anywhere; }
+    .api-doc-content h2 { font-size: 1.1rem; }
+    .api-doc-content pre { font-size: .72rem; padding: 2.5rem .7rem .7rem; }
+    .api-doc-content pre code { font-size: .72rem; }
+    .api-doc-table th, .api-doc-table td { padding: .55rem; font-size: .75rem; }
+    .api-key-modal-content { width: calc(100% - 1rem); }
+}
 
 .btn-sm {
     padding: 0.45rem 0.85rem;

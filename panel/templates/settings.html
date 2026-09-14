@@ -93,18 +93,18 @@
                     <p>Manage VPN users from your own tools or an AI agent. API access is limited to user accounts and never exposes panel settings.</p>
                 </div>
                 <div class="card-body settings-card-body-stack">
-                    <div class="api-key-panel {% if api_key_created %}is-created{% endif %}">
+                    <div class="api-key-panel">
                         <div class="api-key-panel-copy">
                             <div class="settings-row-label">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15 6l3 3M18 3l3 3"/></svg>
                                 <span class="settings-row-title">API key</span>
                                 {% if api_key_created %}<span class="settings-badge-cyan">Created</span>{% else %}<span class="settings-badge-yellow">Not created</span>{% endif %}
                             </div>
-                            <div class="api-key-value" id="apiKeyValue">{% if api_key_created %}{{ api_key_mask }}{% else %}Create a key to enable API access{% endif %}</div>
-                            <div class="settings-row-desc">The full key is shown only once after creation. Store it in a password manager or secret environment variable.</div>
+                            <div class="api-key-value">{% if api_key_created %}API key is configured{% else %}No API key configured{% endif %}</div>
+                            <div class="settings-row-desc">Creating a new key immediately disables the previous key. The full key is shown only in the confirmation popup.</div>
                         </div>
                         <div class="api-key-actions">
-                            {% if not api_key_created %}<button type="button" class="btn btn-primary" id="createApiKeyBtn" onclick="createApiKey()">Create API key</button>{% else %}<span class="api-key-locked">Key is locked</span>{% endif %}
+                            <button type="button" class="btn btn-primary" onclick="openApiKeyModal()">{% if api_key_created %}Regenerate API key{% else %}Create API key{% endif %}</button>
                         </div>
                     </div>
                     <div class="api-base-url-row">
@@ -116,9 +116,7 @@
                     </div>
                     <div class="api-doc-actions">
                         <a class="btn btn-secondary" href="{{ url_for('api_docs') }}" target="_blank" rel="noopener">View API documentation</a>
-                        <a class="btn btn-outline" href="{{ url_for('api_docs_markdown') }}">Download Markdown</a>
                     </div>
-                    <div class="alert alert-warning api-warning">Treat the API key like an administrator credential. It can create, edit, disable, enable and delete VPN users.</div>
                 </div>
             </div>
 
@@ -526,6 +524,38 @@
         </div>
     </div>
 
+    <div id="apiKeyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="apiKeyModalTitle">
+        <div class="modal-content api-key-modal-content">
+            <div class="modal-header">
+                <h3 id="apiKeyModalTitle">Create API key</h3>
+                <button class="btn-close" type="button" onclick="closeApiKeyModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="apiKeyConfirmView">
+                    <div class="api-modal-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15 6l3 3M18 3l3 3"/></svg></div>
+                    <p id="apiKeyConfirmText">A new key will be created and any existing API key will stop working immediately.</p>
+                    <div class="api-modal-note">Make sure you can store the new key securely. It will not be shown again after closing this window.</div>
+                </div>
+                <div id="apiKeyCreatedView" style="display: none;">
+                    <div class="api-modal-success">API key created successfully</div>
+                    <label for="newApiKeyValue">Copy this key now</label>
+                    <div class="api-key-reveal-row">
+                        <input type="text" id="newApiKeyValue" readonly autocomplete="off">
+                        <button type="button" class="btn btn-secondary btn-icon" onclick="copyNewApiKey(this)" aria-label="Copy API key" title="Copy API key"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <div class="api-modal-note">Closing this popup hides the full key. The previous key is already disabled.</div>
+                </div>
+            </div>
+            <div class="modal-footer" id="apiKeyConfirmFooter">
+                <button type="button" class="btn btn-secondary" onclick="closeApiKeyModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createApiKeyBtn" onclick="createApiKey()">Create API key</button>
+            </div>
+            <div class="modal-footer" id="apiKeyCreatedFooter" style="display: none;">
+                <button type="button" class="btn btn-primary" onclick="closeApiKeyModal()">Done</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toastContainer" class="toast-container"></div>
 
     <script>
@@ -562,10 +592,29 @@
             toast._timer = timer;
         }
 
+        function openApiKeyModal() {
+            document.getElementById('apiKeyConfirmView').style.display = 'block';
+            document.getElementById('apiKeyCreatedView').style.display = 'none';
+            document.getElementById('apiKeyConfirmFooter').style.display = 'flex';
+            document.getElementById('apiKeyCreatedFooter').style.display = 'none';
+            document.getElementById('apiKeyModalTitle').textContent = '{{ "Regenerate API key" if api_key_created else "Create API key" }}';
+            const btn = document.getElementById('createApiKeyBtn');
+            btn.disabled = false;
+            btn.textContent = '{{ "Regenerate API key" if api_key_created else "Create API key" }}';
+            document.getElementById('apiKeyModal').style.display = 'flex';
+            document.body.classList.add('modal-open');
+        }
+
+        function closeApiKeyModal() {
+            document.getElementById('apiKeyModal').style.display = 'none';
+            document.body.classList.remove('modal-open');
+            const keyInput = document.getElementById('newApiKeyValue');
+            if (keyInput) keyInput.value = '';
+        }
+
         async function createApiKey() {
             const btn = document.getElementById('createApiKeyBtn');
             if (!btn) return;
-            if (!confirm('Create the API key now? The full key will be shown only once.')) return;
             btn.disabled = true;
             btn.textContent = 'Creating...';
             try {
@@ -575,15 +624,30 @@
                 });
                 const result = await response.json();
                 if (!response.ok || !result.success) throw new Error(result.error || 'Could not create API key.');
-                const value = document.getElementById('apiKeyValue');
-                value.textContent = result.api_key;
-                value.classList.add('api-key-reveal');
-                btn.remove();
-                showToast('API key created. Copy it now; it will not be shown again.', 'success', 6000);
+                document.getElementById('newApiKeyValue').value = result.api_key;
+                document.getElementById('apiKeyConfirmView').style.display = 'none';
+                document.getElementById('apiKeyCreatedView').style.display = 'block';
+                document.getElementById('apiKeyConfirmFooter').style.display = 'none';
+                document.getElementById('apiKeyCreatedFooter').style.display = 'flex';
+                document.getElementById('apiKeyModalTitle').textContent = 'API key ready to copy';
             } catch (error) {
                 btn.disabled = false;
-                btn.textContent = 'Create API key';
+                btn.textContent = '{{ "Regenerate API key" if api_key_created else "Create API key" }}';
                 showToast(error.message, 'error');
+            }
+        }
+
+        async function copyNewApiKey(button) {
+            const input = document.getElementById('newApiKeyValue');
+            try {
+                await navigator.clipboard.writeText(input.value);
+                button.textContent = '✓';
+                showToast('API key copied!', 'success', 2000);
+                setTimeout(() => { button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2h9a2 2 0 0 1 2 2v1"/></svg>'; }, 1500);
+            } catch (error) {
+                input.select();
+                document.execCommand('copy');
+                showToast('API key copied!', 'success', 2000);
             }
         }
 
@@ -797,6 +861,7 @@
             if (event.target == document.getElementById('sessionTimeoutModal')) closeSessionTimeoutModal();
             if (event.target == document.getElementById('confirmVpnModal')) cancelVpnToggle();
             if (event.target == document.getElementById('restoreModal')) closeRestoreModal();
+            if (event.target == document.getElementById('apiKeyModal')) closeApiKeyModal();
         }
 
         let selectedRestoreFile = null;

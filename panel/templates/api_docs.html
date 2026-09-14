@@ -28,7 +28,7 @@
             <tr><td>GET</td><td><code>/users</code></td><td>List users. Supports <code>q</code>, <code>page</code>, <code>per_page</code>.</td></tr>
             <tr><td>POST</td><td><code>/users</code></td><td>Create a user.</td></tr>
             <tr><td>GET</td><td><code>/users/{id}</code></td><td>Get one user.</td></tr>
-            <tr><td>PATCH / PUT</td><td><code>/users/{id}</code></td><td>Edit password, traffic, expiry, note, devices and active state.</td></tr>
+            <tr><td>PATCH / PUT</td><td><code>/users/{id}</code></td><td>Edit traffic, expiry, note, devices and active state.</td></tr>
             <tr><td>POST</td><td><code>/users/{id}/password</code></td><td>Change the password.</td></tr>
             <tr><td>POST</td><td><code>/users/{id}/status</code></td><td>Enable or disable a user.</td></tr>
             <tr><td>DELETE</td><td><code>/users/{id}</code></td><td>Delete a user and disconnect active sessions.</td></tr>
@@ -67,16 +67,16 @@
   }],
   "pagination": {"page": 1, "per_page": 25, "total_items": 1, "total_pages": 1}
 }</code></pre>
-        <h2>Edit, password and status</h2>
+        <h2>Edit a user</h2>
         <pre><code>curl -X PATCH '{{ api_base_url }}/users/12' \
   -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
-  -d '{"duration_days":60,"max_traffic_gb":200,"note":"Renewed"}'
-
-curl -X POST '{{ api_base_url }}/users/12/password' \
+  -d '{"duration_days":60,"max_traffic_gb":200,"note":"Renewed"}'</code></pre>
+        <h2>Change password</h2>
+        <pre><code>curl -X POST '{{ api_base_url }}/users/12/password' \
   -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
-  -d '{"password":"new-password"}'
-
-curl -X POST '{{ api_base_url }}/users/12/status' \
+  -d '{"password":"new-password"}'</code></pre>
+        <h2>Enable or disable a user</h2>
+        <pre><code>curl -X POST '{{ api_base_url }}/users/12/status' \
   -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
   -d '{"is_active":false}'</code></pre>
         <h2>Fields</h2>
@@ -89,5 +89,25 @@ curl -X POST '{{ api_base_url }}/users/12/status' \
 }</code></pre>
     </article>
 </main>
+<script>
+    document.querySelectorAll('.api-doc-content pre').forEach((block) => {
+        const code = block.textContent.trim();
+        if (!code.includes('curl')) return;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-secondary api-doc-copy-btn';
+        button.textContent = 'Copy command';
+        button.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(code);
+                button.textContent = 'Copied';
+            } catch (error) {
+                button.textContent = 'Copy failed';
+            }
+            setTimeout(() => { button.textContent = 'Copy command'; }, 1500);
+        });
+        block.appendChild(button);
+    });
+</script>
 </body>
 </html>
