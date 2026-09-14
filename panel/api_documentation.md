@@ -63,7 +63,8 @@ Example response:
     "used_traffic_bytes": 0,
     "expire_date": "2026-10-14 12:30:00",
     "max_devices": 3,
-    "note": "Team A"
+    "note": "Team A",
+    "portal_url": "https://faghir.seytann.com/sub?u=alice"
   }
 }
 ```
@@ -75,6 +76,13 @@ curl 'https://your-domain.example/api/v1/users?q=alice&page=1&per_page=25' \
   -H 'X-API-Key: sk-your-key'
 
 curl 'https://your-domain.example/api/v1/users/12' \
+  -H 'X-API-Key: sk-your-key'
+```
+
+Search by username with the `q` parameter:
+
+```bash
+curl 'https://your-domain.example/api/v1/users?q=mehran' \
   -H 'X-API-Key: sk-your-key'
 ```
 
@@ -92,7 +100,8 @@ Example list response:
       "used_traffic_bytes": 5242880,
       "expire_date": "2026-10-14 12:30:00",
       "max_devices": 3,
-      "note": "Team A"
+      "note": "Team A",
+      "portal_url": "https://faghir.seytann.com/sub?u=alice"
     }
   ],
   "pagination": {

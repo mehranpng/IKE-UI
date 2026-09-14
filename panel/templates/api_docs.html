@@ -33,6 +33,9 @@
             <tr><td>POST</td><td><code>/users/{id}/status</code></td><td>Enable or disable a user.</td></tr>
             <tr><td>DELETE</td><td><code>/users/{id}</code></td><td>Delete a user and disconnect active sessions.</td></tr>
         </tbody></table>
+        <p>Search by username with the <code>q</code> parameter:</p>
+        <pre><code>curl '{{ api_base_url }}/users?q=mehran' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
         <h2>Create</h2>
         <pre><code>curl -X POST '{{ api_base_url }}/users' \
   -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
@@ -49,7 +52,8 @@
     "used_traffic_bytes": 0,
     "expire_date": "2026-10-14 12:30:00",
     "max_devices": 3,
-    "note": "Team A"
+    "note": "Team A",
+    "portal_url": "https://faghir.seytann.com/sub?u=alice"
   }
 }</code></pre>
         <h2>List response</h2>
@@ -63,7 +67,8 @@
     "used_traffic_bytes": 5242880,
     "expire_date": "2026-10-14 12:30:00",
     "max_devices": 3,
-    "note": "Team A"
+    "note": "Team A",
+    "portal_url": "https://faghir.seytann.com/sub?u=alice"
   }],
   "pagination": {"page": 1, "per_page": 25, "total_items": 1, "total_pages": 1}
 }</code></pre>

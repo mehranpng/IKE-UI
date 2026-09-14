@@ -18,6 +18,7 @@ import tempfile
 import hashlib
 import hmac
 from functools import wraps
+from urllib.parse import quote
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, stream_with_context, send_file, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -2112,6 +2113,10 @@ def api_auth_required(f):
 def api_user_payload(user, include_password=False):
     online = get_online_users()
     payload = format_user_payload(dict(user), online)
+    domain = get_system_config("server_domain", SERVER_DOMAIN)
+    port = get_system_config("panel_port", "443")
+    port_suffix = f":{port}" if str(port) not in ("", "443") else ""
+    payload["portal_url"] = f"https://{domain}{port_suffix}/sub?u={quote(str(user['username']))}"
     if include_password:
         payload["password"] = user["password"]
     return payload
