@@ -64,7 +64,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.8.0"
+APP_VERSION = "1.8.1"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600  # 3 days in seconds (259200s)
 
@@ -409,6 +409,16 @@ def init_db():
             cursor.execute("ALTER TABLE users ADD COLUMN last_ip TEXT")
         except Exception:
             pass
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS traffic_accounting (
+            username TEXT NOT NULL,
+            child_key TEXT NOT NULL,
+            bytes_total INTEGER NOT NULL DEFAULT 0,
+            last_seen REAL NOT NULL,
+            PRIMARY KEY (username, child_key)
+        )
+        """)
 
         cursor.execute("UPDATE users SET max_devices = 10 WHERE max_devices IS NULL OR max_devices <= 0 OR max_devices > 10")
 
@@ -871,10 +881,11 @@ def get_online_users(ttl=1.5):
     return fresh_online
 
 last_seen_child_bytes = {}
-daemon_warmup_done = False
+accounting_state_loaded = False
+accounting_startup_pending = True
 
 def accounting_daemon():
-    global last_seen_child_bytes, daemon_warmup_done
+    global last_seen_child_bytes, accounting_state_loaded, accounting_startup_pending
     while not shutdown_event.is_set():
         try:
             vpn_enabled = (get_system_config("vpn_enabled", "1") == "1")
@@ -892,34 +903,54 @@ def accounting_daemon():
 
             user_deltas = {}
 
-            if not daemon_warmup_done:
-                for username, data in online.items():
-                    for sa_id, sa_data in data.get("sas", {}).items():
-                        for child_key, c_data in sa_data.get("child_sas", {}).items():
-                            last_seen_child_bytes[child_key] = {
-                                "bytes": c_data.get("bytes_total", 0),
-                                "last_seen": now_ts
-                            }
-                daemon_warmup_done = True
-            else:
-                for username, data in online.items():
-                    for sa_id, sa_data in data.get("sas", {}).items():
-                        for child_key, c_data in sa_data.get("child_sas", {}).items():
-                            curr_bytes = c_data.get("bytes_total", 0)
-                            
-                            if child_key in last_seen_child_bytes:
-                                prev_bytes = last_seen_child_bytes[child_key]["bytes"]
-                                delta = max(0, curr_bytes - prev_bytes)
-                            else:
-                                delta = curr_bytes
+            if not accounting_state_loaded:
+                cursor.execute("""
+                    SELECT username, child_key, bytes_total, last_seen
+                    FROM traffic_accounting
+                """)
+                for state in cursor.fetchall():
+                    last_seen_child_bytes[(state["username"], state["child_key"])] = {
+                        "bytes": state["bytes_total"],
+                        "last_seen": state["last_seen"]
+                    }
+                accounting_state_loaded = True
 
-                            last_seen_child_bytes[child_key] = {
-                                "bytes": curr_bytes,
-                                "last_seen": now_ts
-                            }
+            current_state = {}
+            for username, data in online.items():
+                for sa_id, sa_data in data.get("sas", {}).items():
+                    for child_key, c_data in sa_data.get("child_sas", {}).items():
+                        state_key = (username, child_key)
+                        curr_bytes = max(0, int(c_data.get("bytes_total", 0) or 0))
+                        previous = last_seen_child_bytes.get(state_key)
 
-                            if delta > 0:
-                                user_deltas[username] = user_deltas.get(username, 0) + delta
+                        if previous is not None:
+                            prev_bytes = max(0, int(previous.get("bytes", 0) or 0))
+                            # A lower counter means the SA was recreated or reset.
+                            delta = curr_bytes - prev_bytes if curr_bytes >= prev_bytes else curr_bytes
+                        elif accounting_startup_pending:
+                            # Do not charge traffic that happened before this version started.
+                            delta = 0
+                        else:
+                            delta = curr_bytes
+
+                        current_state[state_key] = {
+                            "bytes": curr_bytes,
+                            "last_seen": now_ts
+                        }
+
+                        if delta > 0:
+                            user_deltas[username] = user_deltas.get(username, 0) + delta
+
+                        cursor.execute("""
+                            INSERT OR REPLACE INTO traffic_accounting
+                                (username, child_key, bytes_total, last_seen)
+                            VALUES (?, ?, ?, ?)
+                        """, (username, child_key, curr_bytes, now_ts))
+
+            cursor.execute("""
+                DELETE FROM traffic_accounting
+                WHERE last_seen < ?
+            """, (now_ts - 86400,))
 
             for username, data in online.items():
                 client_ip = data.get("client_ip") or ""
@@ -950,6 +981,9 @@ def accounting_daemon():
                     del last_seen_child_bytes[k]
 
             conn.commit()
+
+            last_seen_child_bytes.update(current_state)
+            accounting_startup_pending = False
 
             cursor.execute("SELECT id, username, max_traffic_gb, used_traffic_bytes, expire_date, is_active, max_devices FROM users")
             users = cursor.fetchall()
