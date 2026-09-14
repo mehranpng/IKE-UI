@@ -87,6 +87,41 @@
                 </div>
             </div>
 
+            <div class="card settings-card api-settings-card">
+                <div class="card-header">
+                    <h2>User Management API</h2>
+                    <p>Manage VPN users from your own tools or an AI agent. API access is limited to user accounts and never exposes panel settings.</p>
+                </div>
+                <div class="card-body settings-card-body-stack">
+                    <div class="api-key-panel {% if api_key_created %}is-created{% endif %}">
+                        <div class="api-key-panel-copy">
+                            <div class="settings-row-label">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15 6l3 3M18 3l3 3"/></svg>
+                                <span class="settings-row-title">API key</span>
+                                {% if api_key_created %}<span class="settings-badge-cyan">Created</span>{% else %}<span class="settings-badge-yellow">Not created</span>{% endif %}
+                            </div>
+                            <div class="api-key-value" id="apiKeyValue">{% if api_key_created %}{{ api_key_mask }}{% else %}Create a key to enable API access{% endif %}</div>
+                            <div class="settings-row-desc">The full key is shown only once after creation. Store it in a password manager or secret environment variable.</div>
+                        </div>
+                        <div class="api-key-actions">
+                            {% if not api_key_created %}<button type="button" class="btn btn-primary" id="createApiKeyBtn" onclick="createApiKey()">Create API key</button>{% else %}<span class="api-key-locked">Key is locked</span>{% endif %}
+                        </div>
+                    </div>
+                    <div class="api-base-url-row">
+                        <div>
+                            <div class="settings-row-label"><span class="settings-row-title">Base URL</span></div>
+                            <div class="api-key-value">{{ api_base_url }}</div>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="copyApiBaseUrl(this)">Copy URL</button>
+                    </div>
+                    <div class="api-doc-actions">
+                        <a class="btn btn-secondary" href="{{ url_for('api_docs') }}" target="_blank" rel="noopener">View API documentation</a>
+                        <a class="btn btn-outline" href="{{ url_for('api_docs_markdown') }}">Download Markdown</a>
+                    </div>
+                    <div class="alert alert-warning api-warning">Treat the API key like an administrator credential. It can create, edit, disable, enable and delete VPN users.</div>
+                </div>
+            </div>
+
             <div class="card settings-card">
                 <div class="card-header settings-header-flex">
                     <div class="settings-header-title">
@@ -525,6 +560,41 @@
             }, duration);
 
             toast._timer = timer;
+        }
+
+        async function createApiKey() {
+            const btn = document.getElementById('createApiKeyBtn');
+            if (!btn) return;
+            if (!confirm('Create the API key now? The full key will be shown only once.')) return;
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+            try {
+                const response = await fetch(`${BASE_PATH}/settings/create-api-key`, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || 'Could not create API key.');
+                const value = document.getElementById('apiKeyValue');
+                value.textContent = result.api_key;
+                value.classList.add('api-key-reveal');
+                btn.remove();
+                showToast('API key created. Copy it now; it will not be shown again.', 'success', 6000);
+            } catch (error) {
+                btn.disabled = false;
+                btn.textContent = 'Create API key';
+                showToast(error.message, 'error');
+            }
+        }
+
+        async function copyApiBaseUrl(button) {
+            const text = button.closest('.api-base-url-row').querySelector('.api-key-value').textContent.trim();
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast('API base URL copied!', 'success', 2000);
+            } catch (error) {
+                showToast('Could not copy the API base URL.', 'error');
+            }
         }
 
         function dismissToast(toast) {

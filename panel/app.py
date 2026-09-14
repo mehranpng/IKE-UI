@@ -15,6 +15,8 @@ import secrets
 import string
 import io
 import tempfile
+import hashlib
+import hmac
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, stream_with_context, send_file, abort
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -61,7 +63,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.7.6"
+APP_VERSION = "1.8.0"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600  # 3 days in seconds (259200s)
 
@@ -296,6 +298,31 @@ def set_system_config(key, value):
         conn.close()
     except Exception as e:
         print(f"[!] Error setting config {key}: {e}", file=sys.stderr)
+
+def get_api_base_url():
+    domain = get_system_config("server_domain", SERVER_DOMAIN)
+    port = get_system_config("panel_port", "443")
+    panel_path = get_system_config("panel_path", "")
+    port_suffix = f":{port}" if str(port) not in ("", "443") else ""
+    path_suffix = f"/{panel_path.strip('/') }" if panel_path.strip('/') else ""
+    return f"https://{domain}{port_suffix}{path_suffix}/api/v1"
+
+def mask_api_key(api_key):
+    if not api_key:
+        return ""
+    if len(api_key) <= 10:
+        return f"{api_key[:3]}{'•' * max(1, len(api_key) - 6)}{api_key[-3:]}"
+    return f"{api_key[:7]}{'•' * 16}{api_key[-4:]}"
+
+def generate_api_key():
+    return "sk-" + secrets.token_urlsafe(32)
+
+def api_key_is_valid(candidate):
+    stored_hash = get_system_config("api_key_hash", "")
+    if not candidate or not stored_hash:
+        return False
+    candidate_hash = hashlib.sha256(candidate.encode("utf-8")).hexdigest()
+    return hmac.compare_digest(candidate_hash, stored_hash)
 
 def format_duration_minutes(minutes):
     try:
@@ -2066,6 +2093,231 @@ def delete_user(user_id):
         conn.close()
     return redirect(url_for("dashboard"))
 
+def api_error(message, status=400):
+    return jsonify({"success": False, "error": message}), status
+
+def api_auth_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        candidate = request.headers.get("X-API-Key", "").strip()
+        if not candidate:
+            auth = request.headers.get("Authorization", "")
+            if auth.lower().startswith("bearer "):
+                candidate = auth[7:].strip()
+        if not api_key_is_valid(candidate):
+            return api_error("A valid API key is required.", 401)
+        return f(*args, **kwargs)
+    return decorated_function
+
+def api_user_payload(user, include_password=False):
+    online = get_online_users()
+    payload = format_user_payload(dict(user), online)
+    if include_password:
+        payload["password"] = user["password"]
+    return payload
+
+def api_user_by_id(user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    user = cursor.fetchone()
+    conn.close()
+    return user
+
+def api_json_body():
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else {}
+
+def api_parse_user_values(data, existing=None):
+    username = str(data.get("username", existing["username"] if existing else "")).strip()
+    password = str(data.get("password", existing["password"] if existing else "")).strip()
+    note = str(data.get("note", existing["note"] if existing else "")).strip()
+
+    try:
+        traffic = float(data.get("max_traffic_gb", existing["max_traffic_gb"] if existing else 0) or 0)
+        if traffic < 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        raise ValueError("max_traffic_gb must be a non-negative number.")
+
+    raw_devices = data.get("max_devices", existing["max_devices"] if existing else 10)
+    try:
+        max_devices = max(1, min(10, int(raw_devices)))
+    except (TypeError, ValueError):
+        raise ValueError("max_devices must be an integer between 1 and 10.")
+
+    duration = data.get("duration_days", None)
+    if duration is None and existing:
+        expire_date = existing["expire_date"]
+    else:
+        try:
+            duration = int(duration or 0)
+            if duration < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            raise ValueError("duration_days must be a non-negative integer.")
+        expire_date = None if duration == 0 else (datetime.datetime.now() + datetime.timedelta(days=duration)).strftime("%Y-%m-%d %H:%M:%S")
+
+    if not username or (not existing and not password):
+        raise ValueError("username and password are required.")
+    if existing and "password" in data and not password:
+        raise ValueError("password cannot be empty.")
+    if len(username) > 128 or len(password) > 256:
+        raise ValueError("username or password is too long.")
+    return username, password, traffic, expire_date, note, max_devices
+
+@app.route("/api/v1/users", methods=["GET"])
+@api_auth_required
+def public_api_users():
+    q = request.args.get("q", "").strip()
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+        per_page = min(100, max(1, int(request.args.get("per_page", 25))))
+    except (TypeError, ValueError):
+        return api_error("page and per_page must be integers.")
+
+    conn = get_db()
+    cursor = conn.cursor()
+    where = "WHERE LOWER(username) LIKE ? OR LOWER(COALESCE(note, '')) LIKE ?" if q else ""
+    params = [f"%{q.lower()}%", f"%{q.lower()}%"] if q else []
+    cursor.execute(f"SELECT COUNT(*) AS total FROM users {where}", params)
+    total = cursor.fetchone()["total"]
+    cursor.execute(f"SELECT * FROM users {where} ORDER BY id DESC LIMIT ? OFFSET ?", params + [per_page, (page - 1) * per_page])
+    users = cursor.fetchall()
+    conn.close()
+    return jsonify({"success": True, "users": [api_user_payload(u) for u in users], "pagination": {
+        "page": page, "per_page": per_page, "total_items": total,
+        "total_pages": max(1, math.ceil(total / per_page))
+    }})
+
+@app.route("/api/v1/users/<int:user_id>", methods=["GET"])
+@api_auth_required
+def public_api_get_user(user_id):
+    user = api_user_by_id(user_id)
+    if not user:
+        return api_error("User not found.", 404)
+    return jsonify({"success": True, "user": api_user_payload(user)})
+
+@app.route("/api/v1/users", methods=["POST"])
+@api_auth_required
+def public_api_add_user():
+    data = api_json_body()
+    try:
+        username, password, traffic, expire_date, note, max_devices = api_parse_user_values(data)
+    except ValueError as exc:
+        return api_error(str(exc))
+    conn = get_db()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (username,))
+        if cursor.fetchone():
+            return api_error(f"User '{username}' already exists.", 409)
+        created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("""INSERT INTO users (username, password, max_traffic_gb, used_traffic_bytes, created_at, expire_date, is_active, note, last_online_at, max_devices)
+                        VALUES (?, ?, ?, 0, ?, ?, 1, ?, NULL, ?)""", (username, password, traffic, created_at, expire_date, note, max_devices))
+        conn.commit()
+        user_id = cursor.lastrowid
+        cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        user = cursor.fetchone()
+    except sqlite3.IntegrityError:
+        return api_error(f"User '{username}' already exists.", 409)
+    finally:
+        conn.close()
+    sync_ipsec_secrets()
+    return jsonify({"success": True, "user": api_user_payload(user, include_password=True)}), 201
+
+@app.route("/api/v1/users/<int:user_id>", methods=["PATCH", "PUT"])
+@api_auth_required
+def public_api_edit_user(user_id):
+    user = api_user_by_id(user_id)
+    if not user:
+        return api_error("User not found.", 404)
+    data = api_json_body()
+    try:
+        username, password, traffic, expire_date, note, max_devices = api_parse_user_values(data, user)
+    except ValueError as exc:
+        return api_error(str(exc))
+    if username.lower() != user["username"].lower():
+        return api_error("Username cannot be changed; create a new user instead.")
+    is_active = user["is_active"]
+    if "is_active" in data:
+        is_active = 1 if bool(data["is_active"]) else 0
+    conn = get_db()
+    conn.execute("UPDATE users SET password = ?, max_traffic_gb = ?, expire_date = ?, note = ?, max_devices = ?, is_active = ? WHERE id = ?",
+                 (password, traffic, expire_date, note, max_devices, is_active, user_id))
+    conn.commit()
+    conn.close()
+    sync_ipsec_secrets()
+    if password != user["password"] or not is_active:
+        disconnect_user_sas(user["username"])
+    else:
+        disconnect_excess_sas(user["username"], max_devices)
+    updated = api_user_by_id(user_id)
+    return jsonify({"success": True, "user": api_user_payload(updated, include_password=password != user["password"])})
+
+@app.route("/api/v1/users/<int:user_id>/password", methods=["POST"])
+@api_auth_required
+def public_api_change_password(user_id):
+    user = api_user_by_id(user_id)
+    password = str(api_json_body().get("password", "")).strip()
+    if not user:
+        return api_error("User not found.", 404)
+    if not password:
+        return api_error("password is required.")
+    conn = get_db()
+    conn.execute("UPDATE users SET password = ? WHERE id = ?", (password, user_id))
+    conn.commit()
+    conn.close()
+    sync_ipsec_secrets()
+    disconnect_user_sas(user["username"])
+    updated = api_user_by_id(user_id)
+    return jsonify({"success": True, "user": api_user_payload(updated, include_password=True)})
+
+@app.route("/api/v1/users/<int:user_id>/status", methods=["POST"])
+@api_auth_required
+def public_api_change_status(user_id):
+    user = api_user_by_id(user_id)
+    data = api_json_body()
+    if not user:
+        return api_error("User not found.", 404)
+    if "is_active" not in data:
+        return api_error("is_active is required.")
+    is_active = 1 if bool(data["is_active"]) else 0
+    conn = get_db()
+    conn.execute("UPDATE users SET is_active = ? WHERE id = ?", (is_active, user_id))
+    conn.commit()
+    conn.close()
+    sync_ipsec_secrets()
+    if not is_active:
+        disconnect_user_sas(user["username"])
+    invalidate_online_cache()
+    return jsonify({"success": True, "user": api_user_payload(api_user_by_id(user_id))})
+
+@app.route("/api/v1/users/<int:user_id>", methods=["DELETE"])
+@api_auth_required
+def public_api_delete_user(user_id):
+    user = api_user_by_id(user_id)
+    if not user:
+        return api_error("User not found.", 404)
+    conn = get_db()
+    conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+    sync_ipsec_secrets()
+    disconnect_user_sas(user["username"])
+    return jsonify({"success": True, "message": f"User '{user['username']}' deleted."})
+
+@app.route("/api/v1/docs")
+@login_required
+def api_docs():
+    return render_template("api_docs.html", api_base_url=get_api_base_url())
+
+@app.route("/api/v1/docs.md")
+@login_required
+def api_docs_markdown():
+    path = os.path.join(BASE_DIR, "api_documentation.md")
+    return send_file(path, mimetype="text/markdown", as_attachment=True, download_name="ike-ui-user-api.md")
+
 RESERVED_PANEL_PATHS = {
     "login", "logout", "settings", "user", "admin",
     "api", "backup", "restore", "static", "sub", "subscription"
@@ -2232,6 +2484,7 @@ def settings():
     except (ValueError, TypeError):
         session_timeout = 4320
     session_timeout_formatted = format_duration_minutes(session_timeout)
+    api_key_hash = get_system_config("api_key_hash", "")
 
     return render_template(
         "settings.html",
@@ -2240,9 +2493,31 @@ def settings():
         sub_portal_url=sub_portal_url,
         server_domain=server_domain,
         panel_path=cur_path,
+        api_key_created=bool(api_key_hash),
+        api_key_mask=get_system_config("api_key_display", "") if api_key_hash else "",
+        api_base_url=get_api_base_url(),
         session_timeout=session_timeout,
         session_timeout_formatted=session_timeout_formatted
     )
+
+@app.route("/settings/create-api-key", methods=["POST"])
+@login_required
+def create_api_key():
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.best == "application/json"
+    if get_system_config("api_key_hash", ""):
+        msg = "An API key has already been created. It cannot be displayed again."
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 409
+        flash(msg, "warning")
+        return redirect(url_for("settings"))
+    api_key = generate_api_key()
+    set_system_config("api_key_hash", hashlib.sha256(api_key.encode("utf-8")).hexdigest())
+    set_system_config("api_key_display", f"{api_key[:7]}{'•' * 16}{api_key[-4:]}")
+    set_system_config("api_key_created_at", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    if is_ajax:
+        return jsonify({"success": True, "api_key": api_key, "message": "API key created. Copy it now; it will not be shown again."})
+    flash("API key created. Copy it now; it will not be shown again.", "success")
+    return redirect(url_for("settings"))
 
 @app.route("/settings/update-session-timeout", methods=["POST"])
 @login_required

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>IKE-UI User Management API</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<main class="api-doc-page">
+    <div class="api-doc-header">
+        <div><span class="brand-title">IKE-UI</span><span class="brand-badge">User API</span></div>
+        <div class="api-doc-actions"><a class="btn btn-secondary btn-sm" href="{{ url_for('api_docs_markdown') }}">Download Markdown</a><a class="btn btn-outline btn-sm" href="{{ url_for('settings') }}">Back to settings</a></div>
+    </div>
+    <article class="api-doc-content">
+        <p class="api-doc-kicker">API v1 · User management only</p>
+        <h1>IKE-UI User Management API</h1>
+        <p class="api-doc-lead">Create and manage VPN user accounts without giving an integration access to panel settings.</p>
+        <h2>Base URL</h2>
+        <pre><code>{{ api_base_url }}</code></pre>
+        <h2>Authentication</h2>
+        <p>Send the API key with every request using either <code>X-API-Key</code> or <code>Authorization: Bearer &lt;key&gt;</code>. Keys start with <code>sk-</code>.</p>
+        <pre><code>curl '{{ api_base_url }}/users' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
+        <div class="api-doc-callout"><strong>Security:</strong> the key is displayed in full only once. If it is lost, it cannot be recovered from the panel.</div>
+        <h2>Endpoints</h2>
+        <table class="api-doc-table"><thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead><tbody>
+            <tr><td>GET</td><td><code>/users</code></td><td>List users. Supports <code>q</code>, <code>page</code>, <code>per_page</code>.</td></tr>
+            <tr><td>POST</td><td><code>/users</code></td><td>Create a user.</td></tr>
+            <tr><td>GET</td><td><code>/users/{id}</code></td><td>Get one user.</td></tr>
+            <tr><td>PATCH / PUT</td><td><code>/users/{id}</code></td><td>Edit password, traffic, expiry, note, devices and active state.</td></tr>
+            <tr><td>POST</td><td><code>/users/{id}/password</code></td><td>Change the password.</td></tr>
+            <tr><td>POST</td><td><code>/users/{id}/status</code></td><td>Enable or disable a user.</td></tr>
+            <tr><td>DELETE</td><td><code>/users/{id}</code></td><td>Delete a user and disconnect active sessions.</td></tr>
+        </tbody></table>
+        <h2>Create</h2>
+        <pre><code>curl -X POST '{{ api_base_url }}/users' \
+  -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"strong-password","duration_days":30,"max_traffic_gb":100,"max_devices":3,"note":"Team A"}'</code></pre>
+        <h2>Edit, password and status</h2>
+        <pre><code>curl -X PATCH '{{ api_base_url }}/users/12' \
+  -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
+  -d '{"duration_days":60,"max_traffic_gb":200,"note":"Renewed"}'
+
+curl -X POST '{{ api_base_url }}/users/12/password' \
+  -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
+  -d '{"password":"new-password"}'
+
+curl -X POST '{{ api_base_url }}/users/12/status' \
+  -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
+  -d '{"is_active":false}'</code></pre>
+        <h2>Fields</h2>
+        <ul><li><code>duration_days: 0</code> means lifetime; on edit it sets lifetime.</li><li><code>max_traffic_gb: 0</code> means unlimited.</li><li><code>max_devices</code> is limited to 1–10.</li><li>Passwords are returned only after create or password change; they are never included in list/get responses.</li></ul>
+        <h2>Responses</h2>
+        <p>Successful responses contain <code>success: true</code>. Errors contain <code>success: false</code> and an <code>error</code> message. Common status codes are 201 (created), 400 (invalid input), 401 (invalid key), 404 (not found), and 409 (duplicate username).</p>
+    </article>
+</main>
+</body>
+</html>

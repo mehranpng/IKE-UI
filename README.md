@@ -3,7 +3,7 @@
 > IKEv2/IPsec VPN Server & Web Management Panel
 
 <p align="left">
-  <img src="https://img.shields.io/badge/Release-v1.7.5-7452ff?style=flat-square" alt="Version 1.7.5" />
+  <img src="https://img.shields.io/badge/Release-v1.8.0-7452ff?style=flat-square" alt="Version 1.8.0" />
   <img src="https://img.shields.io/badge/VPN-IKEv2%20%2F%20IPsec-blue?style=flat-square" alt="IKEv2 VPN" />
   <img src="https://img.shields.io/badge/SSL-Let's%20Encrypt%20Auto-brightgreen?style=flat-square" alt="Let's Encrypt" />
   <img src="https://img.shields.io/badge/OS-Ubuntu%20%2F%20Debian-orange?style=flat-square" alt="Ubuntu / Debian" />
@@ -68,6 +68,10 @@ ike-ui update    # Update IKE-UI
 ### User Account Portal (`/sub`)
 
 IKE-UI includes a user portal at `https://domain.com/sub` (supports `?u=username` auto-fill) where users can view their account status, data usage, remaining validity, connection credentials, and setup tutorials, or update their password.
+
+### User Management API (`/api/v1`)
+
+Version 1.8.0 adds an optional API for VPN user management only. Create an API key manually from **Settings → User Management API**; the full `sk-` key is shown only once. The settings box links to interactive documentation and downloads the same documentation as Markdown for use by an automation agent. It supports listing, creating, editing, password changes, enabling/disabling, and deleting users.
 
 ---
 
@@ -138,4 +142,3 @@ nmcli connection up "MyVPN"
 5. Enter your **Username** and **Password**.
 6. Set **CA Certificate:** Select `/etc/ssl/certs/ISRG_Root_X1.pem` (or `/etc/ssl/certs/ca-certificates.crt`).
 7. Save and toggle **Connect**.
-
