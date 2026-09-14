@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.7.5"
+APP_VERSION="1.7.6"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"
@@ -351,11 +351,6 @@ bootstrap_environment() {
         local is_first_install=0
         if ! is_installed; then
             is_first_install=1
-            read -rp "Do you want to install IKE-UI panel? [y/n]: " confirm_install
-            if [[ ! "$confirm_install" =~ ^[yY]([eE][sS])?$ ]]; then
-                echo -e "${YELLOW}[*] Installation cancelled.${NC}"
-                exit 0
-            fi
         else
             show_banner
         fi
@@ -431,7 +426,7 @@ install_all() {
     show_banner
     detect_network
 
-    if [ -f /etc/systemd/system/ike-ui.service ] || [ -f "${DB_PATH}" ] || [ -d "${PANEL_DIR}" ]; then
+    if [ "$1" != "--first-install" ] && { [ -f /etc/systemd/system/ike-ui.service ] || [ -f "${DB_PATH}" ] || [ -d "${PANEL_DIR}" ]; }; then
         echo -e "${YELLOW}[!] Warning: IKE-UI is already installed on this server.${NC}"
         read -rp "Are you sure you want to reinstall / re-deploy? [y/N]: " confirm_reinstall
         if [[ ! "$confirm_reinstall" =~ ^[yY]([eE][sS])?$ ]]; then
@@ -717,7 +712,7 @@ RULES_EOF
     "${INSTALL_DIR}/venv/bin/pip" install -r "${INSTALL_DIR}/panel/requirements.txt" >/dev/null
 
     SERVER_DOMAIN="${DOMAIN}" DB_PATH="${DB_PATH}" SECRETS_PATH="${SECRETS_PATH}" SECRET_KEY_PATH="${SECRET_KEY_PATH}" \
-    VPN_USER_INFO=$("${INSTALL_DIR}/venv/bin/python" -c "
+    "${INSTALL_DIR}/venv/bin/python" -c "
 import sys
 sys.path.insert(0, '${INSTALL_DIR}/panel')
 import app
@@ -747,18 +742,9 @@ cursor.execute('''
 
 conn.commit()
 
-cursor.execute('SELECT username, password FROM users ORDER BY id ASC LIMIT 1')
-u = cursor.fetchone()
 conn.close()
 app.sync_ipsec_secrets()
-if u:
-    print(f'{u[\"username\"]}:{u[\"password\"]}')
-else:
-    print('user1:Generated')
-" 2>/dev/null || echo "user1:Generated")
-
-    DEFAULT_VPN_USER=$(echo "$VPN_USER_INFO" | cut -d: -f1)
-    DEFAULT_VPN_PASS=$(echo "$VPN_USER_INFO" | cut -d: -f2)
+" 2>/dev/null
 
     cat > /etc/systemd/system/ike-ui.service << SERVICE_EOF
 [Unit]
@@ -812,9 +798,7 @@ SERVICE_EOF
     echo -e "     • Username:  ${BOLD}${ADMIN_USER}${NC}"
     echo -e "     • Password:  ${BOLD}${ADMIN_PASS}${NC}"
     echo ""
-    echo -e "  ${BOLD}Default VPN User:${NC}"
-    echo -e "     • Username:  ${BOLD}${DEFAULT_VPN_USER}${NC}"
-    echo -e "     • Password:  ${BOLD}${DEFAULT_VPN_PASS}${NC}"
+    echo -e "  ${BOLD}VPN Users:${NC}        ${YELLOW}None created yet; add users from the panel.${NC}"
     echo ""
     echo -e "${CYAN}====================================================================${NC}"
     echo -e "${YELLOW}Zero-Cert Setup: No certificates or profiles needed on clients.${NC}"
@@ -1692,7 +1676,7 @@ check_root
 
 case "$1" in
     --first-install)
-        install_all
+        install_all --first-install
         echo ""
         read -rp "Press Enter to continue..."
         menu
@@ -1729,11 +1713,6 @@ case "$1" in
         ;;
     "")
         if ! is_installed; then
-            read -rp "Do you want to install IKE-UI panel? [y/n]: " confirm_install
-            if [[ ! "$confirm_install" =~ ^[yY]([eE][sS])?$ ]]; then
-                echo -e "${YELLOW}[*] Installation cancelled.${NC}"
-                exit 0
-            fi
             install_all
             echo ""
             read -rp "Press Enter to continue..."

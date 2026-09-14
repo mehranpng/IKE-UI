@@ -61,7 +61,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.7.5"
+APP_VERSION = "1.7.6"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600  # 3 days in seconds (259200s)
 
@@ -391,15 +391,6 @@ def init_db():
             default_hash = generate_password_hash(rand_admin_pass)
             now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             cursor.execute("INSERT INTO admin (username, password_hash, created_at) VALUES (?, ?, ?)", (rand_admin_user, default_hash, now))
-
-        cursor.execute("SELECT COUNT(*) as cnt FROM users")
-        if cursor.fetchone()["cnt"] == 0:
-            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            default_user_pass = generate_random_pwd(8)
-            cursor.execute("""
-                INSERT INTO users (username, password, max_traffic_gb, used_traffic_bytes, created_at, expire_date, is_active, note, last_online_at, max_devices)
-                VALUES ('user1', ?, 0, 0, ?, NULL, 1, 'Default VPN User', NULL, 10)
-            """, (default_user_pass, now))
 
         conn.commit()
         conn.close()
@@ -1015,11 +1006,11 @@ def login_required(f):
             timeout_mins = 4320
 
         now = int(time.time())
-        last_active = session.get("last_active")
-        if last_active and (now - int(last_active)) > (timeout_mins * 60):
+        login_time = session.get("login_time")
+        if not login_time or (now - int(login_time)) >= (timeout_mins * 60):
             session.clear()
             if is_ajax:
-                return jsonify({"success": False, "error": "Session expired due to inactivity", "redirect": url_for("login")}), 401
+                return jsonify({"success": False, "error": "Session expired. Please sign in again.", "redirect": url_for("login")}), 401
             flash("Your session has expired. Please sign in again.", "warning")
             return redirect(url_for("login"))
 
@@ -1045,7 +1036,6 @@ def login_required(f):
                 return jsonify({"success": False, "error": "Session validation error", "redirect": url_for("login")}), 401
             return redirect(url_for("login"))
 
-        session["last_active"] = now
         return f(*args, **kwargs)
     return decorated_function
 
@@ -1207,8 +1197,8 @@ def login():
             except (ValueError, TypeError):
                 timeout_mins = 4320
             now = int(time.time())
-            last_active = session.get("last_active")
-            if not last_active or (now - int(last_active)) <= (timeout_mins * 60):
+            login_time = session.get("login_time")
+            if login_time and (now - int(login_time)) < (timeout_mins * 60):
                 try:
                     conn = get_db()
                     cursor = conn.cursor()
@@ -1246,7 +1236,6 @@ def login():
                 session["admin_id"] = admin["id"]
                 session["admin_user"] = admin["username"]
                 session["auth_hash"] = admin["password_hash"]
-                session["last_active"] = int(time.time())
                 session["login_time"] = int(time.time())
                 if is_ajax:
                     return jsonify({"success": True, "redirect": url_for("dashboard")})
@@ -1741,10 +1730,17 @@ def sse_stream():
     stream_admin_id = session.get("admin_id")
     stream_admin_user = session.get("admin_user")
     stream_auth_hash = session.get("auth_hash")
+    stream_login_time = session.get("login_time")
+    try:
+        stream_timeout_mins = max(1, min(43200, int(get_system_config("admin_session_timeout", "4320"))))
+    except (ValueError, TypeError):
+        stream_timeout_mins = 4320
 
     def event_generator():
         while not shutdown_event.is_set():
             try:
+                if not stream_login_time or (int(time.time()) - int(stream_login_time)) >= (stream_timeout_mins * 60):
+                    break
                 conn = get_db()
                 cursor = conn.cursor()
                 if stream_admin_id:
