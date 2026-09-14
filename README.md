@@ -71,7 +71,7 @@ IKE-UI includes a user portal at `https://domain.com/sub` (supports `?u=username
 
 ### User Management API (`/api/v1`)
 
-Version 1.8.0 adds an optional API for VPN user management only. Create an API key manually from **Settings → User Management API**; the full `sk-` key is shown only once. The settings box links to interactive documentation and downloads the same documentation as Markdown for use by an automation agent. It supports listing, creating, editing, password changes, enabling/disabling, and deleting users.
+An optional API for VPN user management. Create an API key from **Settings → User Management API**; the full `sk-` key is shown only once. Includes interactive and Markdown documentation, with support for listing, creating, editing, enabling/disabling, password changes, and deleting users.
 
 ---
 
