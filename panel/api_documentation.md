@@ -49,6 +49,25 @@ curl -X POST 'https://your-domain.example/api/v1/users' \
 
 The response includes the new user and password so an integration can deliver credentials. Passwords are never returned by list/get.
 
+Example response:
+
+```json
+{
+  "success": true,
+  "user": {
+    "id": 12,
+    "username": "alice",
+    "password": "strong-password",
+    "is_active": true,
+    "max_traffic_gb": 100,
+    "used_traffic_bytes": 0,
+    "expire_date": "2026-10-14 12:30:00",
+    "max_devices": 3,
+    "note": "Team A"
+  }
+}
+```
+
 ## List and get users
 
 ```bash
@@ -57,6 +76,32 @@ curl 'https://your-domain.example/api/v1/users?q=alice&page=1&per_page=25' \
 
 curl 'https://your-domain.example/api/v1/users/12' \
   -H 'X-API-Key: sk-your-key'
+```
+
+Example list response:
+
+```json
+{
+  "success": true,
+  "users": [
+    {
+      "id": 12,
+      "username": "alice",
+      "is_active": true,
+      "max_traffic_gb": 100,
+      "used_traffic_bytes": 5242880,
+      "expire_date": "2026-10-14 12:30:00",
+      "max_devices": 3,
+      "note": "Team A"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "per_page": 25,
+    "total_items": 1,
+    "total_pages": 1
+  }
+}
 ```
 
 ## Edit a user
@@ -87,6 +132,19 @@ curl -X POST 'https://your-domain.example/api/v1/users/12/status' \
 
 Disabling a user also disconnects active sessions.
 
+Example status response:
+
+```json
+{
+  "success": true,
+  "user": {
+    "id": 12,
+    "username": "alice",
+    "is_active": false
+  }
+}
+```
+
 ## Delete
 
 ```bash
@@ -97,3 +155,12 @@ curl -X DELETE 'https://your-domain.example/api/v1/users/12' \
 ## Responses and status codes
 
 Every successful response contains `success: true`. Errors contain `success: false` and an `error` message. Common status codes: `201` created, `400` invalid input, `401` invalid key, `404` not found, and `409` duplicate username.
+
+Example error response:
+
+```json
+{
+  "success": false,
+  "error": "A valid API key is required."
+}
+```

@@ -37,6 +37,36 @@
         <pre><code>curl -X POST '{{ api_base_url }}/users' \
   -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
   -d '{"username":"alice","password":"strong-password","duration_days":30,"max_traffic_gb":100,"max_devices":3,"note":"Team A"}'</code></pre>
+        <p>Example response:</p>
+        <pre><code>{
+  "success": true,
+  "user": {
+    "id": 12,
+    "username": "alice",
+    "password": "strong-password",
+    "is_active": true,
+    "max_traffic_gb": 100,
+    "used_traffic_bytes": 0,
+    "expire_date": "2026-10-14 12:30:00",
+    "max_devices": 3,
+    "note": "Team A"
+  }
+}</code></pre>
+        <h2>List response</h2>
+        <pre><code>{
+  "success": true,
+  "users": [{
+    "id": 12,
+    "username": "alice",
+    "is_active": true,
+    "max_traffic_gb": 100,
+    "used_traffic_bytes": 5242880,
+    "expire_date": "2026-10-14 12:30:00",
+    "max_devices": 3,
+    "note": "Team A"
+  }],
+  "pagination": {"page": 1, "per_page": 25, "total_items": 1, "total_pages": 1}
+}</code></pre>
         <h2>Edit, password and status</h2>
         <pre><code>curl -X PATCH '{{ api_base_url }}/users/12' \
   -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
@@ -53,6 +83,10 @@ curl -X POST '{{ api_base_url }}/users/12/status' \
         <ul><li><code>duration_days: 0</code> means lifetime; on edit it sets lifetime.</li><li><code>max_traffic_gb: 0</code> means unlimited.</li><li><code>max_devices</code> is limited to 1–10.</li><li>Passwords are returned only after create or password change; they are never included in list/get responses.</li></ul>
         <h2>Responses</h2>
         <p>Successful responses contain <code>success: true</code>. Errors contain <code>success: false</code> and an <code>error</code> message. Common status codes are 201 (created), 400 (invalid input), 401 (invalid key), 404 (not found), and 409 (duplicate username).</p>
+        <pre><code>{
+  "success": false,
+  "error": "A valid API key is required."
+}</code></pre>
     </article>
 </main>
 </body>
