@@ -2150,10 +2150,7 @@ def api_auth_required(f):
 def api_user_payload(user, include_password=False):
     online = get_online_users()
     payload = format_user_payload(dict(user), online)
-    domain = get_system_config("server_domain", SERVER_DOMAIN)
-    port = get_system_config("panel_port", "443")
-    port_suffix = f":{port}" if str(port) not in ("", "443") else ""
-    payload["portal_url"] = f"https://{domain}{port_suffix}/sub?u={quote(str(user['username']))}"
+    payload["portal_url"] = f"{get_panel_base_url()}/sub?u={quote(str(user['username']))}"
     if include_password:
         payload["password"] = user["password"]
     return payload
@@ -2231,6 +2228,33 @@ def public_api_users():
         "page": page, "per_page": per_page, "total_items": total,
         "total_pages": max(1, math.ceil(total / per_page))
     }})
+
+@app.route("/api/v1/stats", methods=["GET"])
+@api_auth_required
+def public_api_stats():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) AS total_accounts, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS active_users, COALESCE(SUM(used_traffic_bytes), 0) AS total_consumption_bytes FROM users")
+    row = cursor.fetchone()
+    cursor.execute("SELECT username FROM users WHERE is_active = 1")
+    active_usernames = {user["username"] for user in cursor.fetchall()}
+    conn.close()
+
+    online = get_online_users()
+    online_users = sum(1 for username in online if username in active_usernames)
+    total_consumption_bytes = int(row["total_consumption_bytes"] or 0) if row else 0
+
+    return jsonify({
+        "success": True,
+        "stats": {
+            "total_accounts": int(row["total_accounts"] or 0) if row else 0,
+            "active_users": int(row["active_users"] or 0) if row else 0,
+            "online_users": online_users,
+            "total_consumption_bytes": total_consumption_bytes,
+            "total_consumption": format_bytes_val(total_consumption_bytes)
+        },
+        "system": get_system_metrics()
+    })
 
 @app.route("/api/v1/users/<int:user_id>", methods=["GET"])
 @api_auth_required
@@ -3003,20 +3027,18 @@ def validate_uploaded_sqlite_db(file_bytes):
             except Exception:
                 pass
 
-@app.route("/backup/users", methods=["GET"])
-@login_required
-def backup_users():
-    """Generates and downloads a dedicated SQLite database backup containing only the users table."""
+def build_users_backup():
+    """Builds the same users-only SQLite backup used by the web and public API."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users ORDER BY id ASC")
+    users = [dict(u) for u in cursor.fetchall()]
+    conn.close()
+
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_file:
+        tmp_path = tmp_file.name
+
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users ORDER BY id ASC")
-        users = [dict(u) for u in cursor.fetchall()]
-        conn.close()
-
-        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-
         export_conn = sqlite3.connect(tmp_path)
         export_cur = export_conn.cursor()
 
@@ -3076,12 +3098,20 @@ def backup_users():
         with open(tmp_path, "rb") as f:
             data = f.read()
 
+        filename = f"ike_users_backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+        return data, filename
+    finally:
         try:
             os.remove(tmp_path)
         except Exception:
             pass
 
-        filename = f"ike_users_backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+@app.route("/backup/users", methods=["GET"])
+@login_required
+def backup_users():
+    """Generates and downloads a dedicated SQLite database backup containing only the users table."""
+    try:
+        data, filename = build_users_backup()
         return send_file(
             io.BytesIO(data),
             as_attachment=True,
@@ -3092,6 +3122,22 @@ def backup_users():
         print(f"[!] Error creating users backup: {e}", file=sys.stderr)
         flash(f"Error creating users backup: {e}", "danger")
         return redirect(url_for("settings"))
+
+@app.route("/api/v1/backup/users", methods=["GET"])
+@api_auth_required
+def public_api_backup_users():
+    """Downloads the same users-only SQLite backup available in panel settings."""
+    try:
+        data, filename = build_users_backup()
+        return send_file(
+            io.BytesIO(data),
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/x-sqlite3"
+        )
+    except Exception as e:
+        print(f"[!] Error creating API users backup: {e}", file=sys.stderr)
+        return api_error("Could not create users backup.", 500)
 
 @app.route("/backup/full", methods=["GET"])
 @login_required

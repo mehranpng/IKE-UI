@@ -71,7 +71,7 @@ IKE-UI includes a user portal at `https://domain.com/sub` (supports `?u=username
 
 ### API (`/api/v1`)
 
-An optional API for integrations. Create an API key from **Settings → API**; the full `sk-` key is shown only once. Includes interactive and Markdown documentation, with support for listing, creating, editing, enabling/disabling, password changes, and deleting users.
+An optional API for integrations. Create an API key from **Settings → API**; the full `sk-` key is shown only once. Includes interactive and Markdown documentation, with support for dashboard statistics, user listing, creation, editing, enabling/disabling, password changes, deletion, and users-only database backups.
 
 ---
 

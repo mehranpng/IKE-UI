@@ -30,6 +30,7 @@ The full `sk-` key is shown only once when an administrator creates it. Store it
 
 | Method | Path | Description |
 | --- | --- | --- |
+| GET | `/stats` | Get dashboard statistics and current system metrics. |
 | GET | `/users` | List users. Query: `q`, `page`, `per_page`. |
 | POST | `/users` | Create a user. |
 | GET | `/users/{id}` | Get one user. |
@@ -37,6 +38,43 @@ The full `sk-` key is shown only once when an administrator creates it. Store it
 | POST | `/users/{id}/password` | Change password. |
 | POST | `/users/{id}/status` | Enable or disable a user. |
 | DELETE | `/users/{id}` | Delete user and disconnect active sessions. |
+| GET | `/backup/users` | Download a users-only SQLite backup file. |
+
+## Dashboard statistics
+
+```bash
+curl 'https://your-domain.example/api/v1/stats' \
+  -H 'X-API-Key: sk-your-key'
+```
+
+Example response:
+
+```json
+{
+  "success": true,
+  "stats": {
+    "total_accounts": 11,
+    "active_users": 11,
+    "online_users": 6,
+    "total_consumption_bytes": 604752870113,
+    "total_consumption": "563.22 GB"
+  },
+  "system": {
+    "cpu_percent": 0,
+    "cpu_cores": 1,
+    "ram_used_gb": 0.41,
+    "ram_total_gb": 1.03,
+    "ram_percent": 40,
+    "disk_used_gb": 3.7,
+    "disk_total_gb": 19.6,
+    "disk_percent": 19.1,
+    "net_rx": "0 B/s",
+    "net_tx": "0 B/s"
+  }
+}
+```
+
+`total_consumption_bytes` is the exact numeric value; `total_consumption` is formatted for display. Network values are current receive and transmit speeds.
 
 ## Create a user
 
@@ -158,6 +196,15 @@ Example status response:
 
 ```bash
 curl -X DELETE 'https://your-domain.example/api/v1/users/12' \
+  -H 'X-API-Key: sk-your-key'
+```
+
+## Backup users
+
+Downloads the same users-only SQLite backup file available from Settings → Database Backup & Restore. It includes user accounts, credentials, traffic quotas, expiration dates, and the backup metadata table.
+
+```bash
+curl -OJ 'https://your-domain.example/api/v1/backup/users' \
   -H 'X-API-Key: sk-your-key'
 ```
 

@@ -30,6 +30,7 @@
   -H 'X-API-Key: sk-your-key'</code></pre>
         <h2>Endpoints</h2>
         <table class="api-doc-table"><thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead><tbody>
+            <tr><td>GET</td><td><code>/stats</code></td><td>Get dashboard statistics and current system metrics.</td></tr>
             <tr><td>GET</td><td><code>/users</code></td><td>List users. Supports <code>q</code>, <code>page</code>, <code>per_page</code>.</td></tr>
             <tr><td>POST</td><td><code>/users</code></td><td>Create a user.</td></tr>
             <tr><td>GET</td><td><code>/users/{id}</code></td><td>Get one user.</td></tr>
@@ -37,7 +38,35 @@
             <tr><td>POST</td><td><code>/users/{id}/password</code></td><td>Change the password.</td></tr>
             <tr><td>POST</td><td><code>/users/{id}/status</code></td><td>Enable or disable a user.</td></tr>
             <tr><td>DELETE</td><td><code>/users/{id}</code></td><td>Delete a user and disconnect active sessions.</td></tr>
+            <tr><td>GET</td><td><code>/backup/users</code></td><td>Download a users-only SQLite backup file.</td></tr>
         </tbody></table>
+        <h2>Dashboard statistics</h2>
+        <pre><code>curl '{{ api_base_url }}/stats' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
+        <p>Example response:</p>
+        <pre><code>{
+  "success": true,
+  "stats": {
+    "total_accounts": 11,
+    "active_users": 11,
+    "online_users": 6,
+    "total_consumption_bytes": 604752870113,
+    "total_consumption": "563.22 GB"
+  },
+  "system": {
+    "cpu_percent": 0,
+    "cpu_cores": 1,
+    "ram_used_gb": 0.41,
+    "ram_total_gb": 1.03,
+    "ram_percent": 40,
+    "disk_used_gb": 3.7,
+    "disk_total_gb": 19.6,
+    "disk_percent": 19.1,
+    "net_rx": "0 B/s",
+    "net_tx": "0 B/s"
+  }
+}</code></pre>
+        <p><code>total_consumption_bytes</code> is the exact numeric value; <code>total_consumption</code> is formatted for display. Network values are current receive and transmit speeds.</p>
         <p>Search by username with the <code>q</code> parameter:</p>
         <pre><code>curl '{{ api_base_url }}/users?q=mehran' \
   -H 'X-API-Key: sk-your-key'</code></pre>
@@ -91,6 +120,10 @@
   -d '{"is_active":false}'</code></pre>
         <h2>Delete a user</h2>
         <pre><code>curl -X DELETE '{{ api_base_url }}/users/12' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
+        <h2>Backup users</h2>
+        <p>Downloads the same users-only SQLite backup file available from Settings → Database Backup &amp; Restore.</p>
+        <pre><code>curl -OJ '{{ api_base_url }}/backup/users' \
   -H 'X-API-Key: sk-your-key'</code></pre>
         <h2>Fields</h2>
         <ul><li><code>duration_days: 0</code> means lifetime; on edit it sets lifetime.</li><li><code>max_traffic_gb: 0</code> means unlimited.</li><li><code>max_devices</code> is limited to 1–10.</li><li>Passwords are returned only after create or password change; they are never included in list/get responses.</li></ul>
