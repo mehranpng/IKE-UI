@@ -1,10 +1,10 @@
-# IKE-UI User Management API
+# IKE-UI API
 
-API v1 manages VPN user accounts only. It cannot read or change panel settings.
+API v1 provides integration endpoints for the panel. The available endpoints currently manage VPN user accounts.
 
 ## Base URL
 
-Use the Base URL shown in Settings → User Management API:
+Use the Base URL shown in Settings → API:
 
 ```text
 https://your-domain.example/api/v1
@@ -64,7 +64,7 @@ Example response:
     "expire_date": "2026-10-14 12:30:00",
     "max_devices": 3,
     "note": "Team A",
-    "portal_url": "https://faghir.seytann.com/sub?u=alice"
+    "portal_url": "https://your-domain.example/sub?u=alice"
   }
 }
 ```
@@ -101,7 +101,7 @@ Example list response:
       "expire_date": "2026-10-14 12:30:00",
       "max_devices": 3,
       "note": "Team A",
-      "portal_url": "https://faghir.seytann.com/sub?u=alice"
+      "portal_url": "https://your-domain.example/sub?u=alice"
     }
   ],
   "pagination": {

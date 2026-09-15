@@ -3,7 +3,7 @@
 > IKEv2/IPsec VPN Server & Web Management Panel
 
 <p align="left">
-  <img src="https://img.shields.io/badge/Release-v1.8.1-7452ff?style=flat-square" alt="Version 1.8.1" />
+  <img src="https://img.shields.io/badge/Release-v1.8.2-7452ff?style=flat-square" alt="Version 1.8.2" />
   <img src="https://img.shields.io/badge/VPN-IKEv2%20%2F%20IPsec-blue?style=flat-square" alt="IKEv2 VPN" />
   <img src="https://img.shields.io/badge/SSL-Let's%20Encrypt%20Auto-brightgreen?style=flat-square" alt="Let's Encrypt" />
   <img src="https://img.shields.io/badge/OS-Ubuntu%20%2F%20Debian-orange?style=flat-square" alt="Ubuntu / Debian" />
@@ -69,9 +69,9 @@ ike-ui update    # Update IKE-UI
 
 IKE-UI includes a user portal at `https://domain.com/sub` (supports `?u=username` auto-fill) where users can view their account status, data usage, remaining validity, connection credentials, and setup tutorials, or update their password.
 
-### User Management API (`/api/v1`)
+### API (`/api/v1`)
 
-An optional API for VPN user management. Create an API key from **Settings → User Management API**; the full `sk-` key is shown only once. Includes interactive and Markdown documentation, with support for listing, creating, editing, enabling/disabling, password changes, and deleting users.
+An optional API for integrations. Create an API key from **Settings → API**; the full `sk-` key is shown only once. Includes interactive and Markdown documentation, with support for listing, creating, editing, enabling/disabling, password changes, and deleting users.
 
 ---
 

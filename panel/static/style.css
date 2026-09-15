@@ -331,8 +331,11 @@ body.modal-open {
 .api-key-reveal-row input { min-width: 0; flex: 1; color: var(--accent-cyan); font-family: var(--font-mono); font-size: .78rem; font-weight: 700; }
 .api-key-reveal-row .btn-icon { width: 44px; height: 44px; }
 .api-doc-code { position: relative; }
-.api-doc-code pre { padding-top: 2.65rem; }
+.api-doc-code pre { padding-right: 3.75rem; }
 .api-doc-copy-btn { position: absolute; top: .55rem; right: .55rem; width: 34px; height: 32px; min-width: 34px; padding: 0; z-index: 2; }
+.api-doc-base-url { display: flex; align-items: center; gap: .75rem; padding: .75rem; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+.api-doc-base-url code { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.api-doc-base-copy { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; gap: .4rem; }
 
 @media (max-width: 640px) {
     .api-key-panel, .api-base-url-row { align-items: flex-start; flex-direction: column; }
@@ -366,9 +369,11 @@ body.modal-open {
     .api-doc-content { padding: 1rem; box-shadow: 3px 3px 0 #000; }
     .api-doc-content h1 { font-size: 1.7rem; overflow-wrap: anywhere; }
     .api-doc-content h2 { font-size: 1.1rem; }
-    .api-doc-content pre { font-size: .72rem; padding: 2.5rem .7rem .7rem; }
+    .api-doc-content pre { font-size: .72rem; padding: .7rem 3.25rem .7rem .7rem; }
     .api-doc-content pre code { font-size: .72rem; }
     .api-doc-copy-btn { width: 34px; min-width: 34px; }
+    .api-doc-base-url { position: relative; display: block; min-height: 3.1rem; padding-right: 5.5rem; }
+    .api-doc-base-copy { position: absolute; top: .55rem; right: .55rem; }
     .api-doc-table th, .api-doc-table td { padding: .55rem; font-size: .75rem; }
     .api-key-modal-content { width: calc(100% - 1rem); }
 }

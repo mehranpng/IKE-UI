@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.8.1"
+APP_VERSION="1.8.2"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"

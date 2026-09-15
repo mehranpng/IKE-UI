@@ -3,26 +3,31 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>IKE-UI User Management API</title>
+    <title>IKE-UI API</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <main class="api-doc-page">
     <div class="api-doc-header">
-        <div><span class="brand-title">IKE-UI</span><span class="brand-badge">User API</span></div>
+        <div><span class="brand-title">IKE-UI</span><span class="brand-badge">API</span></div>
         <div class="api-doc-actions"><a class="btn btn-secondary btn-sm" href="{{ url_for('api_docs_markdown') }}">Download Markdown</a><a class="btn btn-outline btn-sm" href="{{ url_for('settings') }}">Back to settings</a></div>
     </div>
     <article class="api-doc-content">
-        <p class="api-doc-kicker">API v1 · User management only</p>
-        <h1>IKE-UI User Management API</h1>
-        <p class="api-doc-lead">Create and manage VPN user accounts without giving an integration access to panel settings.</p>
+        <p class="api-doc-kicker">API v1</p>
+        <h1>IKE-UI API</h1>
+        <p class="api-doc-lead">Connect your tools and automations to the panel through a simple API.</p>
         <h2>Base URL</h2>
-        <pre><code>{{ api_base_url }}</code></pre>
+        <div class="api-doc-base-url">
+            <code>{{ api_base_url }}</code>
+            <button type="button" class="btn btn-secondary btn-sm api-doc-base-copy" aria-label="Copy Base URL" title="Copy Base URL">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span>Copy</span>
+            </button>
+        </div>
         <h2>Authentication</h2>
         <p>Send the API key with every request using either <code>X-API-Key</code> or <code>Authorization: Bearer &lt;key&gt;</code>. Keys start with <code>sk-</code>.</p>
         <pre><code>curl '{{ api_base_url }}/users' \
   -H 'X-API-Key: sk-your-key'</code></pre>
-        <div class="api-doc-callout"><strong>Security:</strong> the key is displayed in full only once. If it is lost, it cannot be recovered from the panel.</div>
         <h2>Endpoints</h2>
         <table class="api-doc-table"><thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead><tbody>
             <tr><td>GET</td><td><code>/users</code></td><td>List users. Supports <code>q</code>, <code>page</code>, <code>per_page</code>.</td></tr>
@@ -53,7 +58,7 @@
     "expire_date": "2026-10-14 12:30:00",
     "max_devices": 3,
     "note": "Team A",
-    "portal_url": "https://faghir.seytann.com/sub?u=alice"
+    "portal_url": "{{ panel_base_url }}/sub?u=alice"
   }
 }</code></pre>
         <h2>List response</h2>
@@ -68,7 +73,7 @@
     "expire_date": "2026-10-14 12:30:00",
     "max_devices": 3,
     "note": "Team A",
-    "portal_url": "https://faghir.seytann.com/sub?u=alice"
+    "portal_url": "{{ panel_base_url }}/sub?u=alice"
   }],
   "pagination": {"page": 1, "per_page": 25, "total_items": 1, "total_pages": 1}
 }</code></pre>
@@ -84,6 +89,9 @@
         <pre><code>curl -X POST '{{ api_base_url }}/users/12/status' \
   -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
   -d '{"is_active":false}'</code></pre>
+        <h2>Delete a user</h2>
+        <pre><code>curl -X DELETE '{{ api_base_url }}/users/12' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
         <h2>Fields</h2>
         <ul><li><code>duration_days: 0</code> means lifetime; on edit it sets lifetime.</li><li><code>max_traffic_gb: 0</code> means unlimited.</li><li><code>max_devices</code> is limited to 1–10.</li><li>Passwords are returned only after create or password change; they are never included in list/get responses.</li></ul>
         <h2>Responses</h2>
@@ -95,6 +103,25 @@
     </article>
 </main>
 <script>
+    const copyIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9v1"/></svg>';
+    const checkIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+
+    const baseUrlButton = document.querySelector('.api-doc-base-copy');
+    if (baseUrlButton) {
+        baseUrlButton.addEventListener('click', async () => {
+            const value = baseUrlButton.closest('.api-doc-base-url').querySelector('code').textContent.trim();
+            try {
+                await navigator.clipboard.writeText(value);
+                baseUrlButton.innerHTML = `${checkIcon}<span>Copied</span>`;
+            } catch (error) {
+                baseUrlButton.innerHTML = `${copyIcon}<span>Copy failed</span>`;
+            }
+            setTimeout(() => {
+                baseUrlButton.innerHTML = `${copyIcon}<span>Copy</span>`;
+            }, 1500);
+        });
+    }
+
     document.querySelectorAll('.api-doc-content pre').forEach((block) => {
         const code = block.textContent.trim();
         if (!code.includes('curl')) return;
