@@ -64,7 +64,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.8.5"
+APP_VERSION = "1.8.6"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
