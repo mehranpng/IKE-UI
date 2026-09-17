@@ -137,7 +137,7 @@ nmcli connection up "MyVPN"
 ##### 3. Connect via Desktop GUI (GNOME / KDE)
 1. Open **Settings** > **Network** > **VPN** and click **+**.
 2. Select **IPsec/IKEv2 (strongswan)**.
-3. Set **Gateway:** `vpn.example.com`
+3. Set **Gateway:** `vpn.example.com`-
 4. Set **Authentication:** `EAP (username/password)`
 5. Enter your **Username** and **Password**.
 6. Set **CA Certificate:** Select `/etc/ssl/certs/ISRG_Root_X1.pem` (or `/etc/ssl/certs/ca-certificates.crt`).
