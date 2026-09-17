@@ -64,7 +64,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.8.4"
+APP_VERSION = "1.8.5"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
@@ -121,6 +121,13 @@ def sync_session_lifetime():
     except (ValueError, TypeError):
         timeout_mins = 4320
     app.permanent_session_lifetime = datetime.timedelta(minutes=timeout_mins)
+
+@app.before_request
+def enforce_sub_portal_isolation():
+    if request.path.startswith("/sub"):
+        prefix = (request.script_root or request.headers.get("X-Forwarded-Prefix", "")).strip("/")
+        if prefix:
+            abort(404)
 
 shutdown_event = threading.Event()
 
@@ -2431,6 +2438,8 @@ server {{
     listen {port} ssl http2;
     server_name {domain};
 
+    client_max_body_size 50M;
+
     ssl_certificate /etc/letsencrypt/live/{domain}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/{domain}/privkey.pem;
 
@@ -2441,6 +2450,10 @@ server {{
             nginx_conf += f"""
     location = /{clean_path} {{
         return 301 /{clean_path}/;
+    }}
+
+    location ^~ /{clean_path}/sub {{
+        return 404;
     }}
 
     location /{clean_path}/ {{
@@ -2898,7 +2911,12 @@ def delete_admin(admin_id):
     flash(f"Administrator '{target_admin['username']}' deleted successfully.", "warning")
     return redirect(url_for("settings"))
 
-def validate_uploaded_sqlite_db(file_bytes):
+def validate_uploaded_sqlite_db(file_bytes, filename=None):
+    if filename:
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in [".db", ".sqlite", ".sqlite3"]:
+            return False, "Invalid file format. Only .db, .sqlite, and .sqlite3 files are allowed.", []
+
     if not file_bytes:
         return False, "No file content received.", []
 
@@ -3163,6 +3181,35 @@ def backup_full():
         flash(f"Error creating full backup: {e}", "danger")
         return redirect(url_for("settings"))
 
+def execute_users_restore(users):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM users;")
+    for u in users:
+        cursor.execute("""
+            INSERT INTO users (username, password, max_traffic_gb, used_traffic_bytes, created_at, expire_date, is_active, note, last_online_at, last_ip, max_devices)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            u["username"],
+            u["password"],
+            u["max_traffic_gb"],
+            u["used_traffic_bytes"],
+            u["created_at"],
+            u["expire_date"],
+            u["is_active"],
+            u["note"],
+            u.get("last_online_at"),
+            u.get("last_ip"),
+            u["max_devices"]
+        ))
+
+    conn.commit()
+    conn.close()
+
+    sync_ipsec_secrets()
+    disconnect_all_sas()
+
 @app.route("/restore/users/validate", methods=["POST"])
 @login_required
 def restore_users_validate():
@@ -3170,14 +3217,23 @@ def restore_users_validate():
         return jsonify({"success": False, "error": "No backup file uploaded."}), 400
 
     file = request.files["backup_file"]
-    if not file or file.filename == "":
+    if not file or not file.filename:
         return jsonify({"success": False, "error": "Please select a valid database file."}), 400
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in [".db", ".sqlite", ".sqlite3"]:
+        return jsonify({"success": False, "error": "Invalid file format. Only .db, .sqlite, and .sqlite3 files are allowed."}), 400
+
+    sig = file.read(16)
+    if len(sig) < 16 or sig != b"SQLite format 3\x00":
+        return jsonify({"success": False, "error": "Invalid file signature. The uploaded file is not a valid SQLite database."}), 400
+    file.seek(0)
 
     file_bytes = file.read()
     if len(file_bytes) > 50 * 1024 * 1024:
         return jsonify({"success": False, "error": "Database file is too large (maximum allowed is 50MB)."}), 400
 
-    is_valid, error_msg, users = validate_uploaded_sqlite_db(file_bytes)
+    is_valid, error_msg, users = validate_uploaded_sqlite_db(file_bytes, filename=file.filename)
     if not is_valid:
         return jsonify({"success": False, "error": error_msg}), 400
 
@@ -3200,46 +3256,28 @@ def restore_users_execute():
         return jsonify({"success": False, "error": "No backup file uploaded."}), 400
 
     file = request.files["backup_file"]
-    if not file or file.filename == "":
+    if not file or not file.filename:
         return jsonify({"success": False, "error": "Please select a valid database file."}), 400
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in [".db", ".sqlite", ".sqlite3"]:
+        return jsonify({"success": False, "error": "Invalid file format. Only .db, .sqlite, and .sqlite3 files are allowed."}), 400
+
+    sig = file.read(16)
+    if len(sig) < 16 or sig != b"SQLite format 3\x00":
+        return jsonify({"success": False, "error": "Invalid file signature. The uploaded file is not a valid SQLite database."}), 400
+    file.seek(0)
 
     file_bytes = file.read()
     if len(file_bytes) > 50 * 1024 * 1024:
         return jsonify({"success": False, "error": "Database file exceeds maximum size of 50MB."}), 400
 
-    is_valid, error_msg, users = validate_uploaded_sqlite_db(file_bytes)
+    is_valid, error_msg, users = validate_uploaded_sqlite_db(file_bytes, filename=file.filename)
     if not is_valid:
         return jsonify({"success": False, "error": error_msg}), 400
 
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-
-        cursor.execute("DELETE FROM users;")
-        for u in users:
-            cursor.execute("""
-                INSERT INTO users (username, password, max_traffic_gb, used_traffic_bytes, created_at, expire_date, is_active, note, last_online_at, last_ip, max_devices)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                u["username"],
-                u["password"],
-                u["max_traffic_gb"],
-                u["used_traffic_bytes"],
-                u["created_at"],
-                u["expire_date"],
-                u["is_active"],
-                u["note"],
-                u.get("last_online_at"),
-                u.get("last_ip"),
-                u["max_devices"]
-            ))
-
-        conn.commit()
-        conn.close()
-
-        sync_ipsec_secrets()
-        disconnect_all_sas()
-
+        execute_users_restore(users)
         return jsonify({
             "success": True,
             "message": f"Successfully restored {len(users)} users!",
@@ -3248,6 +3286,41 @@ def restore_users_execute():
     except Exception as e:
         print(f"[!] Error during users restore: {e}", file=sys.stderr)
         return jsonify({"success": False, "error": f"Database restore failed: {e}"}), 500
+
+@app.route("/api/v1/restore/users", methods=["POST"])
+@api_auth_required
+def public_api_restore_users():
+    file = request.files.get("backup_file") or request.files.get("file")
+    if not file or not file.filename:
+        return api_error("No backup file uploaded. Please provide a valid database file in 'backup_file' or 'file'.", 400)
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in [".db", ".sqlite", ".sqlite3"]:
+        return api_error("Invalid file format. Only .db, .sqlite, and .sqlite3 files are allowed.", 400)
+
+    sig = file.read(16)
+    if len(sig) < 16 or sig != b"SQLite format 3\x00":
+        return api_error("Invalid file signature. The uploaded file is not a valid SQLite database.", 400)
+    file.seek(0)
+
+    file_bytes = file.read()
+    if len(file_bytes) > 50 * 1024 * 1024:
+        return api_error("Database file exceeds maximum size of 50MB.", 400)
+
+    is_valid, error_msg, users = validate_uploaded_sqlite_db(file_bytes, filename=file.filename)
+    if not is_valid:
+        return api_error(error_msg or "Invalid database backup file.", 400)
+
+    try:
+        execute_users_restore(users)
+        return jsonify({
+            "success": True,
+            "message": f"Successfully restored {len(users)} users!",
+            "restored_count": len(users)
+        }), 200
+    except Exception as e:
+        print(f"[!] Error during API users restore: {e}", file=sys.stderr)
+        return api_error(f"Database restore failed: {e}", 500)
 
 init_db()
 sync_ipsec_secrets()

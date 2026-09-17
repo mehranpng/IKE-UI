@@ -39,6 +39,7 @@ The full `sk-` key is shown only once when an administrator creates it. Store it
 | POST | `/users/{id}/status` | Enable or disable a user. |
 | DELETE | `/users/{id}` | Delete user and disconnect active sessions. |
 | GET | `/backup/users` | Download a users-only SQLite backup file. |
+| POST | `/restore/users` | Restore user accounts from an SQLite database backup file. |
 
 ## Dashboard statistics
 
@@ -206,6 +207,26 @@ Downloads the same users-only SQLite backup file available from Settings → Dat
 ```bash
 curl -OJ 'https://your-domain.example/api/v1/backup/users' \
   -H 'X-API-Key: sk-your-key'
+```
+
+## Restore users
+
+Restores VPN user accounts from an SQLite database backup file (`.db`, `.sqlite`, or `.sqlite3`). Validates file signature, database integrity, and schema structure before atomically applying changes, syncing IPsec secrets, and terminating outdated sessions. Send the database file as `multipart/form-data` with field name `backup_file` or `file`.
+
+```bash
+curl -X POST 'https://your-domain.example/api/v1/restore/users' \
+  -H 'X-API-Key: sk-your-key' \
+  -F 'backup_file=@ike_users_backup.db'
+```
+
+Example response:
+
+```json
+{
+  "success": true,
+  "message": "Successfully restored 15 users!",
+  "restored_count": 15
+}
 ```
 
 ## Responses and status codes

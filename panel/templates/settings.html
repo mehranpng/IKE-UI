@@ -87,36 +87,68 @@
                 </div>
             </div>
 
-            <div class="card settings-card api-settings-card">
+            <div class="card settings-card">
                 <div class="card-header">
-                    <h2>API</h2>
-                    <p>Connect your own tools or an AI agent to the panel through the API.</p>
+                    <h2>API Access & Integrations</h2>
+                    <p>Connect external tools, automation scripts, or bot integrations via REST API</p>
                 </div>
                 <div class="card-body settings-card-body-stack">
-                    <div class="api-key-panel">
-                        <div class="api-key-panel-copy">
+
+                    <div class="settings-row">
+                        <div class="settings-row-info">
                             <div class="settings-row-label">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15 6l3 3M18 3l3 3"/></svg>
-                                <span class="settings-row-title">API key</span>
-                                {% if api_key_created %}<span class="settings-badge-cyan">Created</span>{% else %}<span class="settings-badge-yellow">Not created</span>{% endif %}
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent-purple, #a855f7);">
+                                    <circle cx="7.5" cy="15.5" r="5.5"></circle>
+                                    <path d="m21 2-9.6 9.6M15 6l3 3M18 3l3 3"></path>
+                                </svg>
+                                <span class="settings-row-title">API Key</span>
+                                <span id="apiKeyBadge">{% if api_key_created %}<span class="settings-badge-cyan">Active</span>{% else %}<span class="settings-badge-yellow">Not Configured</span>{% endif %}</span>
                             </div>
-                            <div class="api-key-value">{% if api_key_created %}{{ api_key_mask }}{% else %}No API key configured{% endif %}</div>
-                            <div class="settings-row-desc">Creating a new key immediately disables the previous key. The full key is shown only in the confirmation popup.</div>
+                            <div id="apiKeyMaskText" style="font-family: var(--font-mono); font-size: 0.84rem; font-weight: 700; color: var(--accent-cyan); margin: 0.35rem 0 0.25rem;">{% if api_key_created %}{{ api_key_mask }}{% else %}No API key configured{% endif %}</div>
+                            <div class="settings-row-desc">
+                                Authenticate requests using Bearer token or X-API-Key header. Generating a new key will immediately revoke the existing one.
+                            </div>
                         </div>
-                        <div class="api-key-actions">
-                            <button type="button" class="btn btn-primary" onclick="openApiKeyModal()">{% if api_key_created %}Regenerate API key{% else %}Create API key{% endif %}</button>
+
+                        <div class="settings-row-action">
+                            <button type="button" class="btn btn-primary" onclick="openApiKeyModal()">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="7.5" cy="15.5" r="5.5"></circle>
+                                    <path d="m21 2-9.6 9.6M15 6l3 3M18 3l3 3"></path>
+                                </svg>
+                                {% if api_key_created %}Regenerate Key{% else %}Create API Key{% endif %}
+                            </button>
                         </div>
                     </div>
-                    <div class="api-base-url-row">
-                        <div>
-                            <div class="settings-row-label"><span class="settings-row-title">Base URL</span></div>
-                            <div class="api-key-value">{{ api_base_url }}</div>
+
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <div class="settings-row-label">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent-cyan);">
+                                    <polyline points="16 18 22 12 16 6"></polyline>
+                                    <polyline points="8 6 2 12 8 18"></polyline>
+                                </svg>
+                                <span class="settings-row-title">API Endpoint & Docs</span>
+                                <span class="settings-badge-cyan">v1 REST API</span>
+                            </div>
+                            <div id="apiBaseUrlVal" style="font-family: var(--font-mono); font-size: 0.84rem; font-weight: 700; color: var(--accent-cyan); margin: 0.35rem 0 0.25rem; overflow-wrap: anywhere;">{{ api_base_url }}</div>
+                            <div class="settings-row-desc">
+                                Endpoints to automate user management, check live server metrics, and download or restore database backups.
+                            </div>
                         </div>
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="copyApiBaseUrl(this)">Copy URL</button>
+
+                        <div class="settings-row-actions">
+                            <button type="button" class="btn btn-secondary" onclick="copyApiBaseUrl(this)" title="Copy API Base URL">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                Copy URL
+                            </button>
+                            <a class="btn btn-secondary" href="{{ url_for('api_docs') }}" target="_blank" rel="noopener" title="Open API Documentation">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                View Docs
+                            </a>
+                        </div>
                     </div>
-                    <div class="api-doc-actions">
-                        <a class="btn btn-secondary" href="{{ url_for('api_docs') }}" target="_blank" rel="noopener">View API documentation</a>
-                    </div>
+
                 </div>
             </div>
 
@@ -605,11 +637,16 @@
             document.body.classList.add('modal-open');
         }
 
+        let hasCreatedApiKey = false;
+
         function closeApiKeyModal() {
             document.getElementById('apiKeyModal').style.display = 'none';
             document.body.classList.remove('modal-open');
             const keyInput = document.getElementById('newApiKeyValue');
             if (keyInput) keyInput.value = '';
+            if (hasCreatedApiKey) {
+                window.location.reload();
+            }
         }
 
         async function createApiKey() {
@@ -624,6 +661,7 @@
                 });
                 const result = await response.json();
                 if (!response.ok || !result.success) throw new Error(result.error || 'Could not create API key.');
+                hasCreatedApiKey = true;
                 document.getElementById('newApiKeyValue').value = result.api_key;
                 document.getElementById('apiKeyConfirmView').style.display = 'none';
                 document.getElementById('apiKeyCreatedView').style.display = 'block';
@@ -643,7 +681,7 @@
                 await navigator.clipboard.writeText(input.value);
                 button.textContent = '✓';
                 showToast('API key copied!', 'success', 2000);
-                setTimeout(() => { button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2h9a2 2 0 0 1 2 2v1"/></svg>'; }, 1500);
+                setTimeout(() => { button.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'; }, 1500);
             } catch (error) {
                 input.select();
                 document.execCommand('copy');
@@ -652,7 +690,8 @@
         }
 
         async function copyApiBaseUrl(button) {
-            const text = button.closest('.api-base-url-row').querySelector('.api-key-value').textContent.trim();
+            const el = document.getElementById('apiBaseUrlVal');
+            const text = el ? el.textContent.trim() : '{{ api_base_url }}';
             try {
                 await navigator.clipboard.writeText(text);
                 showToast('API base URL copied!', 'success', 2000);
@@ -915,11 +954,46 @@
         function handleRestoreFileSelected(files) {
             if (!files || files.length === 0) return;
             const file = files[0];
-            selectedRestoreFile = file;
+            const allowedExts = ['.db', '.sqlite', '.sqlite3'];
+            const fileExt = '.' + file.name.split('.').pop().toLowerCase();
 
+            const statusEl = document.getElementById('restoreValidationStatus');
             const dropzone = document.getElementById('restoreDropzone');
             const dropTitle = document.getElementById('restoreDropzoneTitle');
             const dropSub = document.getElementById('restoreDropzoneSub');
+            const warnBox = document.getElementById('restoreWarningBox');
+            const confirmSec = document.getElementById('restoreConfirmSection');
+            const btnRestore = document.getElementById('btnExecuteRestore');
+
+            if (!allowedExts.includes(fileExt)) {
+                selectedRestoreFile = null;
+                isRestoreFileValid = false;
+                if (dropzone) dropzone.classList.remove('has-file');
+                if (dropTitle) dropTitle.innerText = 'Click or drag & drop backup database (.db) here';
+                if (dropSub) dropSub.innerText = 'Supports SQLite database backup files';
+                if (warnBox) warnBox.style.display = 'none';
+                if (confirmSec) confirmSec.style.display = 'none';
+                if (btnRestore) btnRestore.disabled = true;
+
+                if (statusEl) {
+                    statusEl.style.display = 'block';
+                    statusEl.className = 'restore-status-box invalid';
+                    statusEl.innerHTML = `
+                        <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--danger); flex-shrink: 0; margin-top: 1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg>
+                            <div>
+                                <strong style="color: var(--danger); font-size: 0.85rem; display: block;">Invalid File Type</strong>
+                                <span style="font-size: 0.78rem; color: #ffccd1;">Only SQLite database files (.db, .sqlite, .sqlite3) are accepted.</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                const fileInput = document.getElementById('restoreFileInput');
+                if (fileInput) fileInput.value = '';
+                return;
+            }
+
+            selectedRestoreFile = file;
 
             if (dropzone) dropzone.classList.add('has-file');
             if (dropTitle) dropTitle.innerText = file.name;

@@ -3,186 +3,733 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>IKE-UI API</title>
+    <title>IKE-UI REST API Documentation</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
 <main class="api-doc-page">
-    <div class="api-doc-header">
-        <div><span class="brand-title">IKE-UI</span><span class="brand-badge">API</span></div>
-        <div class="api-doc-actions"><a class="btn btn-secondary btn-sm" href="{{ url_for('api_docs_markdown') }}">Download Markdown</a><a class="btn btn-outline btn-sm" href="{{ url_for('settings') }}">Back to settings</a></div>
-    </div>
-    <article class="api-doc-content">
-        <p class="api-doc-kicker">API v1</p>
-        <h1>IKE-UI API</h1>
-        <p class="api-doc-lead">Connect your tools and automations to the panel through a simple API.</p>
-        <h2>Base URL</h2>
-        <div class="api-doc-base-url">
-            <code>{{ api_base_url }}</code>
-            <button type="button" class="btn btn-secondary btn-sm api-doc-base-copy" aria-label="Copy Base URL" title="Copy Base URL">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                <span>Copy</span>
-            </button>
+    <header class="api-doc-header">
+        <div>
+            <span class="brand-title">IKE-UI</span>
+            <span class="brand-badge">REST API</span>
+            <span class="status-pill status-active" style="padding: 0.15rem 0.5rem; font-size: 0.72rem;">v{{ app_version }}</span>
         </div>
-        <h2>Authentication</h2>
-        <p>Send the API key with every request using either <code>X-API-Key</code> or <code>Authorization: Bearer &lt;key&gt;</code>. Keys start with <code>sk-</code>.</p>
-        <pre><code>curl '{{ api_base_url }}/users' \
+        <div class="api-doc-actions">
+            <a class="btn btn-secondary btn-sm" href="{{ url_for('api_docs_markdown') }}" title="Download documentation as Markdown">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download Markdown
+            </a>
+            <a class="btn btn-outline btn-sm" href="{{ url_for('settings') }}" title="Return to Settings">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+                Back to Settings
+            </a>
+        </div>
+    </header>
+
+    <div class="api-doc-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="api-doc-sidebar">
+            <div class="api-doc-nav-group">
+                <div class="api-doc-nav-title">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    Getting Started
+                </div>
+                <ul class="api-doc-nav-list">
+                    <li><a href="#overview" class="api-doc-nav-link">Overview &amp; Base URL</a></li>
+                    <li><a href="#authentication" class="api-doc-nav-link">Authentication</a></li>
+                    <li><a href="#responses" class="api-doc-nav-link">Responses &amp; Errors</a></li>
+                </ul>
+            </div>
+
+            <div class="api-doc-nav-group">
+                <div class="api-doc-nav-title">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    System &amp; Metrics
+                </div>
+                <ul class="api-doc-nav-list">
+                    <li><a href="#endpoint-stats" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /stats</a></li>
+                </ul>
+            </div>
+
+            <div class="api-doc-nav-group">
+                <div class="api-doc-nav-title">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    User Management
+                </div>
+                <ul class="api-doc-nav-list">
+                    <li><a href="#endpoint-list-users" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /users</a></li>
+                    <li><a href="#endpoint-create-user" class="api-doc-nav-link"><span class="badge-method badge-method-post" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">POST</span> /users</a></li>
+                    <li><a href="#endpoint-get-user" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /users/{id}</a></li>
+                    <li><a href="#endpoint-edit-user" class="api-doc-nav-link"><span class="badge-method badge-method-patch" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">PATCH</span> /users/{id}</a></li>
+                    <li><a href="#endpoint-change-password" class="api-doc-nav-link"><span class="badge-method badge-method-post" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">POST</span> /users/{id}/pwd</a></li>
+                    <li><a href="#endpoint-toggle-status" class="api-doc-nav-link"><span class="badge-method badge-method-post" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">POST</span> /users/{id}/status</a></li>
+                    <li><a href="#endpoint-delete-user" class="api-doc-nav-link"><span class="badge-method badge-method-delete" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">DEL</span> /users/{id}</a></li>
+                </ul>
+            </div>
+
+            <div class="api-doc-nav-group">
+                <div class="api-doc-nav-title">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                    Backup &amp; Restore
+                </div>
+                <ul class="api-doc-nav-list">
+                    <li><a href="#endpoint-backup-users" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /backup/users</a></li>
+                    <li><a href="#endpoint-restore-users" class="api-doc-nav-link"><span class="badge-method badge-method-post" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">POST</span> /restore/users</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="api-doc-main">
+
+            <!-- Overview Section -->
+            <section class="api-doc-card" id="overview">
+                <p class="api-doc-kicker">RESTful Integration API</p>
+                <h1>IKE-UI API Reference</h1>
+                <p class="api-doc-lead">Seamlessly connect external management portals, automation bots, billing systems, or AI agents to your IKEv2 / IPsec StrongSwan VPN server.</p>
+
+                <h2 style="margin-top: 1.5rem;">API Base URL</h2>
+                <div class="api-doc-base-url">
+                    <code id="apiBaseUrlCode">{{ api_base_url }}</code>
+                    <button type="button" class="btn btn-secondary btn-sm api-doc-base-copy" onclick="copyDocSnippet('{{ api_base_url }}', this)" title="Copy Base URL">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        <span>Copy</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Authentication Section -->
+            <section class="api-doc-card" id="authentication">
+                <h2>Authentication</h2>
+                <p>Every request to the API requires an active API key generated from <strong>Settings &gt; API Access &amp; Integrations</strong>. Send the API key with every request using either header:</p>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>HTTP Header Option 1: X-API-Key</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet('X-API-Key: sk-your-api-key', this)" title="Copy Header"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>X-API-Key: sk-your-api-key</code></pre>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>HTTP Header Option 2: Authorization Bearer</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet('Authorization: Bearer sk-your-api-key', this)" title="Copy Header"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>Authorization: Bearer sk-your-api-key</code></pre>
+                </div>
+
+                <div class="api-doc-callout" style="border-radius: var(--radius-md); margin-top: 1rem;">
+                    <strong>Security Note:</strong> API keys start with <code>sk-</code>. The full key is displayed only once upon generation. Keep it secure; if lost, regenerate a new key from Settings.
+                </div>
+            </section>
+
+            <!-- System & Metrics: GET /stats -->
+            <section class="api-endpoint-card" id="endpoint-stats">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-get">GET</span>
+                        <span class="api-endpoint-path">/stats</span>
+                    </div>
+                    <span class="settings-badge-cyan">Dashboard &amp; Hardware Metrics</span>
+                </div>
+                <p>Retrieves live server performance metrics (CPU, RAM, Disk, Net Rx/Tx) and aggregate VPN statistics (total, active, and online users, plus total traffic consumed).</p>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s '{{ api_base_url }}/stats' \
   -H 'X-API-Key: sk-your-key'</code></pre>
-        <h2>Endpoints</h2>
-        <table class="api-doc-table"><thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead><tbody>
-            <tr><td>GET</td><td><code>/stats</code></td><td>Get dashboard statistics and current system metrics.</td></tr>
-            <tr><td>GET</td><td><code>/users</code></td><td>List users. Supports <code>q</code>, <code>page</code>, <code>per_page</code>.</td></tr>
-            <tr><td>POST</td><td><code>/users</code></td><td>Create a user.</td></tr>
-            <tr><td>GET</td><td><code>/users/{id}</code></td><td>Get one user.</td></tr>
-            <tr><td>PATCH / PUT</td><td><code>/users/{id}</code></td><td>Edit traffic, expiry, note, devices and active state.</td></tr>
-            <tr><td>POST</td><td><code>/users/{id}/password</code></td><td>Change the password.</td></tr>
-            <tr><td>POST</td><td><code>/users/{id}/status</code></td><td>Enable or disable a user.</td></tr>
-            <tr><td>DELETE</td><td><code>/users/{id}</code></td><td>Delete a user and disconnect active sessions.</td></tr>
-            <tr><td>GET</td><td><code>/backup/users</code></td><td>Download a users-only SQLite backup file.</td></tr>
-        </tbody></table>
-        <h2>Dashboard statistics</h2>
-        <pre><code>curl '{{ api_base_url }}/stats' \
-  -H 'X-API-Key: sk-your-key'</code></pre>
-        <p>Example response:</p>
-        <pre><code>{
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>Response 200 OK</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>{
   "success": true,
   "stats": {
-    "total_accounts": 11,
-    "active_users": 11,
-    "online_users": 6,
-    "total_consumption_bytes": 604752870113,
-    "total_consumption": "563.22 GB"
+    "total_accounts": 12,
+    "active_users": 10,
+    "online_users": 3,
+    "total_consumption_bytes": 10737418240,
+    "total_consumption": "10.00 GB"
   },
   "system": {
-    "cpu_percent": 0,
-    "cpu_cores": 1,
-    "ram_used_gb": 0.41,
-    "ram_total_gb": 1.03,
-    "ram_percent": 40,
-    "disk_used_gb": 3.7,
-    "disk_total_gb": 19.6,
-    "disk_percent": 19.1,
-    "net_rx": "0 B/s",
-    "net_tx": "0 B/s"
+    "cpu_percent": 3.2,
+    "cpu_cores": 2,
+    "ram_used_gb": 0.65,
+    "ram_total_gb": 2.00,
+    "ram_percent": 32.5,
+    "disk_used_gb": 4.1,
+    "disk_total_gb": 40.0,
+    "disk_percent": 10.2,
+    "net_rx": "142.5 KB/s",
+    "net_tx": "512.8 KB/s"
   }
 }</code></pre>
-        <p><code>total_consumption_bytes</code> is the exact numeric value; <code>total_consumption</code> is formatted for display. Network values are current receive and transmit speeds.</p>
-        <p>Search by username with the <code>q</code> parameter:</p>
-        <pre><code>curl '{{ api_base_url }}/users?q=mehran' \
+                </div>
+            </section>
+
+            <!-- User Management: GET /users -->
+            <section class="api-endpoint-card" id="endpoint-list-users">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-get">GET</span>
+                        <span class="api-endpoint-path">/users</span>
+                    </div>
+                    <span class="settings-badge-cyan">List &amp; Search Users</span>
+                </div>
+                <p>Returns a paginated list of VPN users with filtering by query keyword.</p>
+
+                <div class="api-param-table-wrap">
+                    <table class="api-param-table">
+                        <thead>
+                            <tr>
+                                <th>Query Parameter</th>
+                                <th>Type</th>
+                                <th>Required</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="api-param-name">q</td>
+                                <td class="api-param-type">string</td>
+                                <td><span class="badge-req badge-req-no">Optional</span></td>
+                                <td class="api-param-desc">Search keyword filtered against username or notes.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">page</td>
+                                <td class="api-param-type">integer</td>
+                                <td><span class="badge-req badge-req-no">Optional</span></td>
+                                <td class="api-param-desc">Page number (default: <code>1</code>).</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">per_page</td>
+                                <td class="api-param-type">integer</td>
+                                <td><span class="badge-req badge-req-no">Optional</span></td>
+                                <td class="api-param-desc">Number of items per page (default: <code>25</code>, max: <code>100</code>).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s '{{ api_base_url }}/users?q=alice&page=1&per_page=25' \
   -H 'X-API-Key: sk-your-key'</code></pre>
-        <h2>Create</h2>
-        <pre><code>curl -X POST '{{ api_base_url }}/users' \
-  -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
-  -d '{"username":"alice","password":"strong-password","duration_days":30,"max_traffic_gb":100,"max_devices":3,"note":"Team A"}'</code></pre>
-        <p>Example response:</p>
-        <pre><code>{
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>Response 200 OK</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>{
+  "success": true,
+  "users": [
+    {
+      "id": 1,
+      "username": "alice",
+      "is_active": true,
+      "max_traffic_gb": 50,
+      "used_traffic_bytes": 104857600,
+      "expire_date": "2026-12-31 23:59:59",
+      "max_devices": 3,
+      "note": "VIP Client",
+      "portal_url": "{{ portal_base_url }}/sub?u=alice"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "per_page": 25,
+    "total_items": 1,
+    "total_pages": 1
+  }
+}</code></pre>
+                </div>
+            </section>
+
+            <!-- User Management: POST /users -->
+            <section class="api-endpoint-card" id="endpoint-create-user">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-post">POST</span>
+                        <span class="api-endpoint-path">/users</span>
+                    </div>
+                    <span class="settings-badge-cyan">Create New User</span>
+                </div>
+                <p>Creates a new VPN user account. The plaintext password and direct user portal link are returned in the response.</p>
+
+                <div class="api-param-table-wrap">
+                    <table class="api-param-table">
+                        <thead>
+                            <tr>
+                                <th>JSON Body Field</th>
+                                <th>Type</th>
+                                <th>Required</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="api-param-name">username</td>
+                                <td class="api-param-type">string</td>
+                                <td><span class="badge-req badge-req-yes">Required</span></td>
+                                <td class="api-param-desc">Alphanumeric username (3–32 characters). Must be unique.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">password</td>
+                                <td class="api-param-type">string</td>
+                                <td><span class="badge-req badge-req-no">Optional</span></td>
+                                <td class="api-param-desc">User password. If omitted, a secure 8-character random password is auto-generated.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">duration_days</td>
+                                <td class="api-param-type">integer</td>
+                                <td><span class="badge-req badge-req-no">Optional</span></td>
+                                <td class="api-param-desc">Validity in days from now. Use <code>0</code> for lifetime / unlimited. Default: <code>30</code>.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">max_traffic_gb</td>
+                                <td class="api-param-type">number</td>
+                                <td><span class="badge-req badge-req-no">Optional</span></td>
+                                <td class="api-param-desc">Traffic limit in Gigabytes. Use <code>0</code> for unlimited traffic. Default: <code>0</code>.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">max_devices</td>
+                                <td class="api-param-type">integer</td>
+                                <td><span class="badge-req badge-req-no">Optional</span></td>
+                                <td class="api-param-desc">Simultaneous connected devices limit (1 to 10). Default: <code>10</code>.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">note</td>
+                                <td class="api-param-type">string</td>
+                                <td><span class="badge-req badge-req-no">Optional</span></td>
+                                <td class="api-param-desc">Optional customer memo, reference ID, or telegram username.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s -X POST '{{ api_base_url }}/users' \
+  -H 'X-API-Key: sk-your-key' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "username": "bob",
+    "password": "SecurePassword123",
+    "duration_days": 30,
+    "max_traffic_gb": 100,
+    "max_devices": 3,
+    "note": "Office User"
+  }'</code></pre>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>Response 201 Created</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>{
   "success": true,
   "user": {
-    "id": 12,
-    "username": "alice",
-    "password": "strong-password",
+    "id": 2,
+    "username": "bob",
+    "password": "SecurePassword123",
     "is_active": true,
     "max_traffic_gb": 100,
     "used_traffic_bytes": 0,
-    "expire_date": "2026-10-14 12:30:00",
+    "expire_date": "2026-10-17 22:30:00",
     "max_devices": 3,
-    "note": "Team A",
-    "portal_url": "{{ portal_base_url }}/sub?u=alice"
+    "note": "Office User",
+    "portal_url": "{{ portal_base_url }}/sub?u=bob"
   }
 }</code></pre>
-        <h2>List response</h2>
-        <pre><code>{
+                </div>
+            </section>
+
+            <!-- User Management: GET /users/{id} -->
+            <section class="api-endpoint-card" id="endpoint-get-user">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-get">GET</span>
+                        <span class="api-endpoint-path">/users/{id}</span>
+                    </div>
+                    <span class="settings-badge-cyan">Get User Details</span>
+                </div>
+                <p>Retrieves complete account details, traffic usage, and portal link for a single user ID.</p>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s '{{ api_base_url }}/users/2' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>Response 200 OK</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>{
   "success": true,
-  "users": [{
-    "id": 12,
-    "username": "alice",
+  "user": {
+    "id": 2,
+    "username": "bob",
     "is_active": true,
     "max_traffic_gb": 100,
     "used_traffic_bytes": 5242880,
-    "expire_date": "2026-10-14 12:30:00",
+    "expire_date": "2026-10-17 22:30:00",
     "max_devices": 3,
-    "note": "Team A",
-    "portal_url": "{{ portal_base_url }}/sub?u=alice"
-  }],
-  "pagination": {"page": 1, "per_page": 25, "total_items": 1, "total_pages": 1}
+    "note": "Office User",
+    "portal_url": "{{ portal_base_url }}/sub?u=bob"
+  }
 }</code></pre>
-        <h2>Edit a user</h2>
-        <pre><code>curl -X PATCH '{{ api_base_url }}/users/12' \
-  -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
-  -d '{"duration_days":60,"max_traffic_gb":200,"note":"Renewed"}'</code></pre>
-        <h2>Change password</h2>
-        <pre><code>curl -X POST '{{ api_base_url }}/users/12/password' \
-  -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
-  -d '{"password":"new-password"}'</code></pre>
-        <h2>Enable or disable a user</h2>
-        <pre><code>curl -X POST '{{ api_base_url }}/users/12/status' \
-  -H 'X-API-Key: sk-your-key' -H 'Content-Type: application/json' \
-  -d '{"is_active":false}'</code></pre>
-        <h2>Delete a user</h2>
-        <pre><code>curl -X DELETE '{{ api_base_url }}/users/12' \
-  -H 'X-API-Key: sk-your-key'</code></pre>
-        <h2>Backup users</h2>
-        <p>Downloads the same users-only SQLite backup file available from Settings → Database Backup &amp; Restore.</p>
-        <pre><code>curl -OJ '{{ api_base_url }}/backup/users' \
-  -H 'X-API-Key: sk-your-key'</code></pre>
-        <h2>Fields</h2>
-        <ul><li><code>duration_days: 0</code> means lifetime; on edit it sets lifetime.</li><li><code>max_traffic_gb: 0</code> means unlimited.</li><li><code>max_devices</code> is limited to 1–10.</li><li>Passwords are returned only after create or password change; they are never included in list/get responses.</li></ul>
-        <h2>Responses</h2>
-        <p>Successful responses contain <code>success: true</code>. Errors contain <code>success: false</code> and an <code>error</code> message. Common status codes are 201 (created), 400 (invalid input), 401 (invalid key), 404 (not found), and 409 (duplicate username).</p>
-        <pre><code>{
-  "success": false,
-  "error": "A valid API key is required."
-}</code></pre>
-    </article>
-</main>
-<script>
-    const copyIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9v1"/></svg>';
-    const checkIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+                </div>
+            </section>
 
-    const baseUrlButton = document.querySelector('.api-doc-base-copy');
-    if (baseUrlButton) {
-        baseUrlButton.addEventListener('click', async () => {
-            const value = baseUrlButton.closest('.api-doc-base-url').querySelector('code').textContent.trim();
-            try {
-                await navigator.clipboard.writeText(value);
-                baseUrlButton.innerHTML = `${checkIcon}<span>Copied</span>`;
-            } catch (error) {
-                baseUrlButton.innerHTML = `${copyIcon}<span>Copy failed</span>`;
+            <!-- User Management: PATCH /users/{id} -->
+            <section class="api-endpoint-card" id="endpoint-edit-user">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-patch">PATCH</span>
+                        <span class="api-endpoint-path">/users/{id}</span>
+                    </div>
+                    <span class="settings-badge-cyan">Update User Account</span>
+                </div>
+                <p>Updates traffic allowance, expiration, device limit, note, password, or active state. Supports both <code>PATCH</code> and <code>PUT</code>.</p>
+
+                <div class="api-param-table-wrap">
+                    <table class="api-param-table">
+                        <thead>
+                            <tr>
+                                <th>JSON Body Field</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="api-param-name">duration_days</td>
+                                <td class="api-param-type">integer</td>
+                                <td class="api-param-desc">Reset expiration date to X days from today. Pass <code>0</code> to set as lifetime.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">max_traffic_gb</td>
+                                <td class="api-param-type">number</td>
+                                <td class="api-param-desc">Updated traffic quota in GB. Pass <code>0</code> for unlimited.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">max_devices</td>
+                                <td class="api-param-type">integer</td>
+                                <td class="api-param-desc">Maximum concurrent devices (1 to 10).</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">note</td>
+                                <td class="api-param-type">string</td>
+                                <td class="api-param-desc">Updated memo note.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">is_active</td>
+                                <td class="api-param-type">boolean</td>
+                                <td class="api-param-desc">Enable (<code>true</code>) or disable (<code>false</code>) the user account.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">password</td>
+                                <td class="api-param-type">string</td>
+                                <td class="api-param-desc">New connection password.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s -X PATCH '{{ api_base_url }}/users/2' \
+  -H 'X-API-Key: sk-your-key' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "max_traffic_gb": 200,
+    "duration_days": 60,
+    "note": "Subscription Renewed"
+  }'</code></pre>
+                </div>
+            </section>
+
+            <!-- User Management: POST /users/{id}/password -->
+            <section class="api-endpoint-card" id="endpoint-change-password">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-post">POST</span>
+                        <span class="api-endpoint-path">/users/{id}/password</span>
+                    </div>
+                    <span class="settings-badge-cyan">Change Password</span>
+                </div>
+                <p>Updates the user's connection password and automatically synchronizes IPsec StrongSwan secrets in real time.</p>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s -X POST '{{ api_base_url }}/users/2/password' \
+  -H 'X-API-Key: sk-your-key' \
+  -H 'Content-Type: application/json' \
+  -d '{"password": "BrandNewPassword456"}'</code></pre>
+                </div>
+            </section>
+
+            <!-- User Management: POST /users/{id}/status -->
+            <section class="api-endpoint-card" id="endpoint-toggle-status">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-post">POST</span>
+                        <span class="api-endpoint-path">/users/{id}/status</span>
+                    </div>
+                    <span class="settings-badge-cyan">Enable / Disable User</span>
+                </div>
+                <p>Toggles user active status. Setting <code>is_active: false</code> immediately terminates all active VPN tunnel sessions for that user.</p>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s -X POST '{{ api_base_url }}/users/2/status' \
+  -H 'X-API-Key: sk-your-key' \
+  -H 'Content-Type: application/json' \
+  -d '{"is_active": false}'</code></pre>
+                </div>
+            </section>
+
+            <!-- User Management: DELETE /users/{id} -->
+            <section class="api-endpoint-card" id="endpoint-delete-user">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-delete">DELETE</span>
+                        <span class="api-endpoint-path">/users/{id}</span>
+                    </div>
+                    <span class="settings-badge-cyan">Delete User</span>
+                </div>
+                <p>Permanently deletes the user account, removes credentials from IPsec secrets, and disconnects all active connections.</p>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s -X DELETE '{{ api_base_url }}/users/2' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
+                </div>
+            </section>
+
+            <!-- Backup & Restore: GET /backup/users -->
+            <section class="api-endpoint-card" id="endpoint-backup-users">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-get">GET</span>
+                        <span class="api-endpoint-path">/backup/users</span>
+                    </div>
+                    <span class="settings-badge-cyan">Export Users Database</span>
+                </div>
+                <p>Downloads a standalone SQLite database backup (<code>.db</code>) containing all user accounts, encrypted credentials, quotas, and metadata. Compatible with the restore feature.</p>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Download</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s -OJ '{{ api_base_url }}/backup/users' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
+                </div>
+            </section>
+
+            <!-- Backup & Restore: POST /restore/users -->
+            <section class="api-endpoint-card" id="endpoint-restore-users">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-post">POST</span>
+                        <span class="api-endpoint-path">/restore/users</span>
+                    </div>
+                    <span class="settings-badge-cyan">Restore Users from Database</span>
+                </div>
+                <p>Restores VPN user accounts from an SQLite database backup file (<code>.db</code>, <code>.sqlite</code>, or <code>.sqlite3</code>). The endpoint verifies file signature, integrity, schema compatibility, atomically replaces the accounts, re-syncs StrongSwan secrets, and terminates obsolete sessions.</p>
+
+                <div class="api-param-table-wrap">
+                    <table class="api-param-table">
+                        <thead>
+                            <tr>
+                                <th>Form Multipart Field</th>
+                                <th>Type</th>
+                                <th>Required</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="api-param-name">backup_file</td>
+                                <td class="api-param-type">file binary</td>
+                                <td><span class="badge-req badge-req-yes">Required</span></td>
+                                <td class="api-param-desc">SQLite database file (<code>.db</code>, <code>.sqlite</code>, <code>.sqlite3</code>). You can also send field name as <code>file</code>. Max size: 50MB.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request (Multipart Upload)</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s -X POST '{{ api_base_url }}/restore/users' \
+  -H 'X-API-Key: sk-your-key' \
+  -F 'backup_file=@ike_users_backup_20260917.db'</code></pre>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>Response 200 OK</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>{
+  "success": true,
+  "message": "Successfully restored 15 users!",
+  "restored_count": 15
+}</code></pre>
+                </div>
+            </section>
+
+            <!-- Errors & Status Codes Section -->
+            <section class="api-doc-card" id="responses">
+                <h2>Responses &amp; Error Handling</h2>
+                <p>All API endpoints return consistent JSON payloads. Successful operations include <code>"success": true</code>, while errors include <code>"success": false</code> with a descriptive <code>"error"</code> message string.</p>
+
+                <div class="api-param-table-wrap">
+                    <table class="api-param-table">
+                        <thead>
+                            <tr>
+                                <th>HTTP Status</th>
+                                <th>Status Name</th>
+                                <th>Meaning</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="api-param-name">200</td>
+                                <td class="api-param-type">OK</td>
+                                <td class="api-param-desc">The request succeeded.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">201</td>
+                                <td class="api-param-type">Created</td>
+                                <td class="api-param-desc">The resource was successfully created.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">400</td>
+                                <td class="api-param-type">Bad Request</td>
+                                <td class="api-param-desc">Malformed JSON, missing required fields, or invalid file format.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">401</td>
+                                <td class="api-param-type">Unauthorized</td>
+                                <td class="api-param-desc">Missing or invalid API key.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">404</td>
+                                <td class="api-param-type">Not Found</td>
+                                <td class="api-param-desc">The requested user ID or endpoint does not exist.</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">409</td>
+                                <td class="api-param-type">Conflict</td>
+                                <td class="api-param-desc">Duplicate resource (e.g. username already taken).</td>
+                            </tr>
+                            <tr>
+                                <td class="api-param-name">500</td>
+                                <td class="api-param-type">Server Error</td>
+                                <td class="api-param-desc">An unexpected internal server error occurred.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>Standard Error Response Example</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>{
+  "success": false,
+  "error": "Invalid file format. Only .db, .sqlite, and .sqlite3 files are allowed."
+}</code></pre>
+                </div>
+            </section>
+
+        </div>
+    </div>
+</main>
+
+<script>
+    async function copyDocSnippet(text, button) {
+        const copyIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        const checkIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+        try {
+            await navigator.clipboard.writeText(text.trim());
+            if (button.tagName === 'BUTTON') {
+                const hasSpan = button.querySelector('span');
+                button.innerHTML = hasSpan ? `${checkIcon}<span>Copied</span>` : checkIcon;
+                button.classList.add('btn-success');
+                setTimeout(() => {
+                    button.innerHTML = hasSpan ? `${copyIcon}<span>Copy</span>` : copyIcon;
+                    button.classList.remove('btn-success');
+                }, 1500);
             }
-            setTimeout(() => {
-                baseUrlButton.innerHTML = `${copyIcon}<span>Copy</span>`;
-            }, 1500);
-        });
+        } catch (e) {
+            console.error('Clipboard copy failed', e);
+        }
     }
 
-    document.querySelectorAll('.api-doc-content pre').forEach((block) => {
-        const code = block.textContent.trim();
-        if (!code.includes('curl')) return;
-        const wrapper = document.createElement('div');
-        wrapper.className = 'api-doc-code';
-        block.parentNode.insertBefore(wrapper, block);
-        wrapper.appendChild(block);
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'btn btn-secondary btn-icon api-doc-copy-btn';
-        button.setAttribute('aria-label', 'Copy command');
-        button.title = 'Copy command';
-        button.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-        button.addEventListener('click', async () => {
-            try {
-                await navigator.clipboard.writeText(code);
-                button.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
-                button.title = 'Copied';
-            } catch (error) {
-                button.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-                button.title = 'Copy failed';
-            }
-            setTimeout(() => {
-                button.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-                button.title = 'Copy command';
-            }, 1500);
-        });
-        wrapper.appendChild(button);
+    // Highlight active link in sidebar on scroll
+    document.addEventListener('DOMContentLoaded', () => {
+        const links = document.querySelectorAll('.api-doc-nav-link');
+        const sections = Array.from(links).map(l => document.querySelector(l.getAttribute('href'))).filter(Boolean);
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            const scrollPos = window.scrollY + 120;
+            sections.forEach(sec => {
+                if (sec.offsetTop <= scrollPos) {
+                    current = sec.id;
+                }
+            });
+            links.forEach(link => {
+                if (link.getAttribute('href') === `#${current}`) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+        }, { passive: true });
     });
 </script>
 </body>

@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.8.4"
+APP_VERSION="1.8.5"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"
@@ -141,6 +141,8 @@ server {
     listen ${port} ssl http2;
     server_name ${domain};
 
+    client_max_body_size 50M;
+
     ssl_certificate /etc/letsencrypt/live/${domain}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${domain}/privkey.pem;
 
@@ -153,6 +155,10 @@ NGINX_EOF
 
     location = /${path} {
         return 301 /${path}/;
+    }
+
+    location ^~ /${path}/sub {
+        return 404;
     }
 
     location /${path}/ {
