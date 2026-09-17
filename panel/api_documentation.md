@@ -85,7 +85,7 @@ curl -X POST 'https://your-domain.example/api/v1/users' \
   -d '{"username":"alice","password":"strong-password","duration_days":30,"max_traffic_gb":100,"max_devices":3,"note":"Team A"}'
 ```
 
-The response includes the new user and password so an integration can deliver credentials. Passwords are never returned by list/get.
+The response includes the new user and password so an integration can deliver credentials. Passwords are never returned by list/get. The `portal_url` always uses the public `/sub` path and never includes the panel secret path.
 
 Example response:
 

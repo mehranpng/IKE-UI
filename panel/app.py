@@ -64,7 +64,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.8.2"
+APP_VERSION = "1.8.3"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600  # 3 days in seconds (259200s)
 
@@ -300,13 +300,16 @@ def set_system_config(key, value):
     except Exception as e:
         print(f"[!] Error setting config {key}: {e}", file=sys.stderr)
 
-def get_panel_base_url():
+def get_public_base_url():
     domain = get_system_config("server_domain", SERVER_DOMAIN)
     port = get_system_config("panel_port", "443")
-    panel_path = get_system_config("panel_path", "")
     port_suffix = f":{port}" if str(port) not in ("", "443") else ""
+    return f"https://{domain}{port_suffix}"
+
+def get_panel_base_url():
+    panel_path = get_system_config("panel_path", "")
     path_suffix = f"/{panel_path.strip('/') }" if panel_path.strip('/') else ""
-    return f"https://{domain}{port_suffix}{path_suffix}"
+    return f"{get_public_base_url()}{path_suffix}"
 
 def get_api_base_url():
     return f"{get_panel_base_url()}/api/v1"
@@ -2150,7 +2153,7 @@ def api_auth_required(f):
 def api_user_payload(user, include_password=False):
     online = get_online_users()
     payload = format_user_payload(dict(user), online)
-    payload["portal_url"] = f"{get_panel_base_url()}/sub?u={quote(str(user['username']))}"
+    payload["portal_url"] = f"{get_public_base_url()}/sub?u={quote(str(user['username']))}"
     if include_password:
         payload["password"] = user["password"]
     return payload
@@ -2379,7 +2382,7 @@ def api_docs():
     return render_template(
         "api_docs.html",
         api_base_url=get_api_base_url(),
-        panel_base_url=get_panel_base_url(),
+        portal_base_url=get_public_base_url(),
     )
 
 @app.route("/api/v1/docs.md")
@@ -2547,7 +2550,7 @@ def settings():
     sub_portal_status = (get_system_config("sub_portal_enabled", "1") == "1")
     cur_path = get_system_config("panel_path", "")
     server_domain = get_system_config("server_domain", SERVER_DOMAIN)
-    sub_portal_url = f"https://{server_domain}/sub"
+    sub_portal_url = f"{get_public_base_url()}/sub"
     try:
         session_timeout = int(get_system_config("admin_session_timeout", "4320"))
         session_timeout = max(1, min(43200, session_timeout))
