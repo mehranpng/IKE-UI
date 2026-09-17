@@ -257,6 +257,7 @@ show_banner() {
   ██║██║  ██╗███████╗      ╚██████╔╝██║
   ╚═╝╚═╝  ╚═╝╚══════╝       ╚═════╝ ╚═╝
          IKE-UI Manager v${cur_ver}
+     https://github.com/mehranpng/IKE-UI
 BANNER
     echo -e "${CYAN}====================================================${NC}"
 

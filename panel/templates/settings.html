@@ -128,7 +128,7 @@
                                     <polyline points="16 18 22 12 16 6"></polyline>
                                     <polyline points="8 6 2 12 8 18"></polyline>
                                 </svg>
-                                <span class="settings-row-title">API Endpoint & Docs</span>
+                                <span class="settings-row-title">API Endpoint</span>
                                 <span class="settings-badge-cyan">v1 REST API</span>
                             </div>
                             <div id="apiBaseUrlVal" style="font-family: var(--font-mono); font-size: 0.84rem; font-weight: 700; color: var(--accent-cyan); margin: 0.35rem 0 0.25rem; overflow-wrap: anywhere;">{{ api_base_url }}</div>
@@ -137,16 +137,23 @@
                             </div>
                         </div>
 
-                        <div class="settings-row-actions">
+                        <div class="settings-row-action">
                             <button type="button" class="btn btn-secondary" onclick="copyApiBaseUrl(this)" title="Copy API Base URL">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                                 Copy URL
                             </button>
-                            <a class="btn btn-secondary" href="{{ url_for('api_docs') }}" target="_blank" rel="noopener" title="Open API Documentation">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                                View Docs
-                            </a>
                         </div>
+                    </div>
+
+                    <div class="api-doc-actions" style="margin-top: 0.25rem;">
+                        <a class="btn btn-secondary" href="{{ url_for('api_docs') }}" target="_blank" rel="noopener">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            View Docs
+                        </a>
+                        <a class="btn btn-outline" href="{{ url_for('api_docs_markdown') }}">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Download Markdown
+                        </a>
                     </div>
 
                 </div>
