@@ -22,7 +22,6 @@
             </button>
             <span class="brand-title">IKE-UI</span>
             <span class="brand-badge">REST API</span>
-            <span class="status-pill status-active" style="padding: 0.15rem 0.5rem; font-size: 0.72rem;">v{{ app_version }}</span>
         </div>
         <div class="api-doc-actions">
             <a class="btn btn-secondary btn-sm" href="{{ url_for('api_docs_markdown') }}" title="Download documentation as Markdown">
@@ -730,26 +729,16 @@
         }
     }
 
-    // Mobile drawer & sidebar toggle
+    // Overlay drawer & backdrop toggle
     function toggleApiMenu(force) {
-        const layout = document.querySelector('.api-doc-layout');
         const sidebar = document.getElementById('apiDocSidebar');
         const backdrop = document.getElementById('apiDocBackdrop');
-        const isMobile = window.innerWidth <= 900;
+        if (!sidebar || !backdrop) return;
 
-        if (isMobile) {
-            const willOpen = typeof force === 'boolean' ? force : !sidebar.classList.contains('open');
-            sidebar.classList.toggle('open', willOpen);
-            backdrop.classList.toggle('active', willOpen);
-            document.body.style.overflow = willOpen ? 'hidden' : '';
-        } else {
-            if (layout) {
-                const isCollapsed = layout.classList.toggle('sidebar-collapsed');
-                try {
-                    localStorage.setItem('ike_api_doc_sidebar', isCollapsed ? 'collapsed' : 'expanded');
-                } catch (e) {}
-            }
-        }
+        const willOpen = typeof force === 'boolean' ? force : !sidebar.classList.contains('open');
+        sidebar.classList.toggle('open', willOpen);
+        backdrop.classList.toggle('active', willOpen);
+        document.body.style.overflow = willOpen ? 'hidden' : '';
     }
 
     document.getElementById('apiMenuToggle')?.addEventListener('click', (e) => {
@@ -757,12 +746,10 @@
         toggleApiMenu();
     });
 
-    // Close on navigation link click on mobile
+    // Close on navigation link click
     document.querySelectorAll('.api-doc-nav-link').forEach(link => {
         link.addEventListener('click', () => {
-            if (window.innerWidth <= 900) {
-                toggleApiMenu(false);
-            }
+            toggleApiMenu(false);
         });
     });
 
@@ -772,24 +759,6 @@
             toggleApiMenu(false);
         }
     });
-
-    // Handle viewport resize
-    window.addEventListener('resize', () => {
-        if (window.innerWidth > 900) {
-            document.getElementById('apiDocSidebar')?.classList.remove('open');
-            document.getElementById('apiDocBackdrop')?.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-    });
-
-    // Restore desktop preference
-    if (window.innerWidth > 900) {
-        try {
-            if (localStorage.getItem('ike_api_doc_sidebar') === 'collapsed') {
-                document.querySelector('.api-doc-layout')?.classList.add('sidebar-collapsed');
-            }
-        } catch (e) {}
-    }
 
     // Highlight active link in sidebar on scroll
     document.addEventListener('DOMContentLoaded', () => {
