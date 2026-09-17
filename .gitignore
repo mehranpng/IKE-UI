@@ -6,3 +6,7 @@ __pycache__/
 venv/
 .env
 *.log
+
+graphify-out/
+.graphify*
+.agents/

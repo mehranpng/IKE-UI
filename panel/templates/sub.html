@@ -196,7 +196,6 @@
             margin-bottom: 0;
         }
 
-        /* Guide Tabs */
         .guide-tabs {
             display: flex;
             gap: 0.5rem;
@@ -311,7 +310,6 @@
 <body>
 
 {% if not is_logged_in %}
-    <!-- Sub Login View -->
     <div class="login-body">
         <div class="login-card">
             <div class="login-header">
@@ -430,7 +428,6 @@
     </script>
 
 {% else %}
-    <!-- Sub Dashboard View -->
     <div class="sub-portal-layout">
         <header class="sub-navbar">
             <div class="sub-brand">
@@ -468,7 +465,6 @@
             </div>
 
             <div class="sub-grid">
-                <!-- Account Status & Live Network Card -->
                 <div class="sub-card">
                     <div class="sub-card-header">
                         <span class="sub-card-title">
@@ -544,7 +540,6 @@
                     {% endif %}
                 </div>
 
-                <!-- Traffic Quota Card -->
                 <div class="sub-card">
                     <div class="sub-card-header">
                         <span class="sub-card-title">
@@ -589,7 +584,6 @@
                     </div>
                 </div>
 
-                <!-- Validity & Expiration Card -->
                 <div class="sub-card">
                     <div class="sub-card-header">
                         <span class="sub-card-title">
@@ -621,7 +615,6 @@
                     </div>
                 </div>
 
-                <!-- Connection Settings / Quick Config Card -->
                 <div class="sub-card">
                     <div class="sub-card-header">
                         <span class="sub-card-title">
@@ -674,7 +667,6 @@
                 </div>
             </div>
 
-            <!-- Connection Guide / Setup Tutorials Card -->
             <div class="card" style="margin-top: 1.5rem;">
                 <div class="card-header">
                     <h2>Connection Setup Tutorials</h2>
@@ -708,7 +700,6 @@
                         </button>
                     </div>
 
-                    <!-- iOS / macOS Tab -->
                     <div class="guide-tab-content active" id="guide-ios">
                         <ul class="guide-step-list">
                             <li class="guide-step-item">
@@ -746,7 +737,6 @@
                         </ul>
                     </div>
 
-                    <!-- Android Tab -->
                     <div class="guide-tab-content" id="guide-android">
                         <ul class="guide-step-list">
                             <li class="guide-step-item">
@@ -783,7 +773,6 @@
                         </ul>
                     </div>
 
-                    <!-- Windows Tab -->
                     <div class="guide-tab-content" id="guide-windows">
                         <ul class="guide-step-list">
                             <li class="guide-step-item">
@@ -831,7 +820,6 @@
                         </ul>
                     </div>
 
-                    <!-- Linux Tab -->
                     <div class="guide-tab-content" id="guide-linux">
                         <ul class="guide-step-list">
                             <li class="guide-step-item">
@@ -886,7 +874,6 @@
         </main>
     </div>
 
-    <!-- Change Password Modal -->
     <div id="changePasswordModal" class="modal">
         <div class="modal-content" style="max-width: 460px;">
             <div class="modal-header">

@@ -66,7 +66,7 @@ def get_persistent_secret_key():
 
 APP_VERSION = "1.8.4"
 
-SUB_SESSION_LIFETIME = 3 * 24 * 3600  # 3 days in seconds (259200s)
+SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
 app = Flask(
     __name__,
@@ -444,7 +444,6 @@ def init_db():
 sync_lock = threading.Lock()
 
 def disconnect_all_sas():
-    """Disconnect all active StrongSwan SAs when VPN is killed."""
     try:
         subprocess.run(["ipsec", "down", "ikev2-vpn"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         online = fetch_online_users_raw()
@@ -458,7 +457,6 @@ def disconnect_all_sas():
         print(f"[!] Error disconnecting all SAs: {e}", file=sys.stderr)
 
 def disconnect_user_sas(username, online_dict=None):
-    """Safely disconnect all active StrongSwan SAs for a specific username."""
     if not username:
         return
     try:
@@ -475,7 +473,6 @@ def disconnect_user_sas(username, online_dict=None):
         print(f"[!] Error disconnecting SAs for {username}: {e}", file=sys.stderr)
 
 def disconnect_excess_sas(username, max_devices, online_dict=None):
-    """Disconnect oldest excess SAs if a user has more connections than max_devices."""
     if not username:
         return
     try:
@@ -931,10 +928,8 @@ def accounting_daemon():
 
                         if previous is not None:
                             prev_bytes = max(0, int(previous.get("bytes", 0) or 0))
-                            # A lower counter means the SA was recreated or reset.
                             delta = curr_bytes - prev_bytes if curr_bytes >= prev_bytes else curr_bytes
                         elif accounting_startup_pending:
-                            # Do not charge traffic that happened before this version started.
                             delta = 0
                         else:
                             delta = curr_bytes
@@ -2904,11 +2899,6 @@ def delete_admin(admin_id):
     return redirect(url_for("settings"))
 
 def validate_uploaded_sqlite_db(file_bytes):
-    """
-    Validates that the uploaded file is a valid, uncorrupted SQLite database
-    and contains a compatible `users` table with valid account records.
-    Returns: (is_valid: bool, error_message: str or None, parsed_users: list)
-    """
     if not file_bytes:
         return False, "No file content received.", []
 
@@ -3031,7 +3021,6 @@ def validate_uploaded_sqlite_db(file_bytes):
                 pass
 
 def build_users_backup():
-    """Builds the same users-only SQLite backup used by the web and public API."""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM users ORDER BY id ASC")
@@ -3112,7 +3101,6 @@ def build_users_backup():
 @app.route("/backup/users", methods=["GET"])
 @login_required
 def backup_users():
-    """Generates and downloads a dedicated SQLite database backup containing only the users table."""
     try:
         data, filename = build_users_backup()
         return send_file(
@@ -3129,7 +3117,6 @@ def backup_users():
 @app.route("/api/v1/backup/users", methods=["GET"])
 @api_auth_required
 def public_api_backup_users():
-    """Downloads the same users-only SQLite backup available in panel settings."""
     try:
         data, filename = build_users_backup()
         return send_file(
@@ -3145,7 +3132,6 @@ def public_api_backup_users():
 @app.route("/backup/full", methods=["GET"])
 @login_required
 def backup_full():
-    """Generates and downloads a complete snapshot of the entire panel database."""
     try:
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_file:
             tmp_path = tmp_file.name
@@ -3180,7 +3166,6 @@ def backup_full():
 @app.route("/restore/users/validate", methods=["POST"])
 @login_required
 def restore_users_validate():
-    """Validates an uploaded database file and returns user count."""
     if "backup_file" not in request.files:
         return jsonify({"success": False, "error": "No backup file uploaded."}), 400
 
@@ -3204,7 +3189,6 @@ def restore_users_validate():
 @app.route("/restore/users/execute", methods=["POST"])
 @login_required
 def restore_users_execute():
-    """Restores users table from uploaded database file with confirmation enforcement."""
     confirm_text = request.form.get("confirmation", "").strip()
     if confirm_text.upper() != "RESTORE":
         return jsonify({
