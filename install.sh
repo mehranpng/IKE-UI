@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.8.3"
+APP_VERSION="1.8.4"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"
@@ -330,7 +330,7 @@ CLI_EOF
 }
 
 is_installed() {
-    if [ -f /etc/systemd/system/ike-ui.service ] || [ -f "${DB_PATH}" ] || [ -f "${PANEL_DIR}/app.py" ]; then
+    if [ -f /etc/systemd/system/ike-ui.service ] || [ -f "${DB_PATH}" ]; then
         return 0
     fi
     return 1
@@ -426,7 +426,18 @@ install_all() {
     show_banner
     detect_network
 
-    if [ "$1" != "--first-install" ] && { [ -f /etc/systemd/system/ike-ui.service ] || [ -f "${DB_PATH}" ] || [ -d "${PANEL_DIR}" ]; }; then
+    local is_first=0
+    local target_domain=""
+
+    for arg in "$@"; do
+        if [ "$arg" = "--first-install" ]; then
+            is_first=1
+        elif [ -z "$target_domain" ] && [ -n "$arg" ] && [[ "$arg" != -* ]]; then
+            target_domain="$arg"
+        fi
+    done
+
+    if [ "$is_first" -eq 0 ] && { [ -f /etc/systemd/system/ike-ui.service ] || [ -f "${DB_PATH}" ]; }; then
         echo -e "${YELLOW}[!] Warning: IKE-UI is already installed on this server.${NC}"
         read -rp "Are you sure you want to reinstall / re-deploy? [y/N]: " confirm_reinstall
         if [[ ! "$confirm_reinstall" =~ ^[yY]([eE][sS])?$ ]]; then
@@ -440,14 +451,15 @@ install_all() {
     echo -e "${YELLOW}[*] Public IP Address:${NC} ${BOLD}${SERVER_IP}${NC}"
     echo ""
 
-    if [ -n "$1" ]; then
-        DOMAIN="$1"
+    if [ -n "$target_domain" ]; then
+        DOMAIN="$target_domain"
     else
         read -rp "Enter Domain Name (e.g. vpn.example.com): " DOMAIN
     fi
+    DOMAIN=$(echo "$DOMAIN" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]' | sed -e 's|^https\?://||' -e 's|/.*$||')
 
-    if [ -z "$DOMAIN" ]; then
-        echo -e "${RED}[X] Error: Domain name cannot be empty.${NC}"
+    if [ -z "$DOMAIN" ] || [[ "$DOMAIN" == --* ]]; then
+        echo -e "${RED}[X] Error: Domain name cannot be empty or a flag.${NC}"
         exit 1
     fi
 
@@ -1676,7 +1688,7 @@ check_root
 
 case "$1" in
     --first-install)
-        install_all --first-install
+        install_all --first-install "$2"
         echo ""
         read -rp "Press Enter to continue..."
         menu
