@@ -239,6 +239,8 @@ NGINX_EOF
 
 show_banner() {
     clear 2>/dev/null || true
+    # A steady input cursor keeps the logo refresh from looking like cursor flicker.
+    [ -t 1 ] && printf '\033[?12l' > /dev/tty 2>/dev/null || true
     local cur_ver="$APP_VERSION"
     if [ -f "${INSTALL_DIR}/install.sh" ]; then
         local disk_ver
@@ -340,6 +342,95 @@ BANNER
     fi
     echo -e "${NC}"
 }
+
+# The menu keeps accepting input while this process repaints only the logo area.
+# Saving and restoring the cursor around every frame means the prompt is never
+# redrawn, so its cursor timing is not tied to the logo animation.
+LOGO_ANIMATION_PID=""
+
+start_logo_animation() {
+    [ -t 1 ] && [ -w /dev/tty ] || return 0
+    command -v python3 >/dev/null 2>&1 || return 0
+    stop_logo_animation
+
+    python3 - /dev/tty << 'PY_EOF' &
+import math
+import sys
+import time
+
+tty_path = sys.argv[1]
+BANNER_LOGO = [
+    "  ██╗██╗  ██╗███████╗      ██╗   ██╗██╗",
+    "  ██║██║ ██╔╝██╔════╝      ██║   ██║██║",
+    "  ██║█████╔╝ █████╗  █████╗██║   ██║██║",
+    "  ██║██╔═██╗ ██╔══╝  ╚════╝██║   ██║██║",
+    "  ██║██║  ██╗███████╗      ╚██████╔╝██║",
+    "  ╚═╝╚═╝  ╚═╝╚══════╝       ╚═════╝ ╚═╝",
+]
+
+COLOR_VIOLET = (165, 60, 150)
+COLOR_ROSE = (235, 65, 140)
+COLOR_LIGHT_PINK = (255, 175, 215)
+
+def lerp(c1, c2, factor):
+    factor = max(0.0, min(1.0, factor))
+    return tuple(int(a + (b - a) * factor) for a, b in zip(c1, c2))
+
+def smoothstep(value):
+    value = max(0.0, min(1.0, value))
+    return value * value * (3.0 - 2.0 * value)
+
+with open(tty_path, "w", encoding="utf-8", buffering=1) as terminal:
+    started = time.monotonic()
+    while True:
+        phase = (time.monotonic() - started) * 1.8
+        frame = ["\0337"]  # Save the input cursor before touching the logo.
+        for y, line in enumerate(BANNER_LOGO, start=1):
+            chars = []
+            for x, char in enumerate(line):
+                if char == " ":
+                    chars.append(" ")
+                    continue
+                wave = math.sin(x * 0.22 - phase + y * 0.45) * 0.5 + 0.5
+                glow = math.cos(x * 0.16 - phase * 0.72 - y * 0.38) * 0.5 + 0.5
+                base = lerp(COLOR_VIOLET, COLOR_ROSE, smoothstep(wave))
+                color = lerp(base, COLOR_LIGHT_PINK, smoothstep(glow) * 0.82)
+                chars.append(f"\033[1;38;2;{color[0]};{color[1]};{color[2]}m{char}")
+            frame.append(f"\033[{y};1H{''.join(chars)}\033[0m")
+        frame.append("\0338")  # Return to the input cursor without printing a newline.
+        terminal.write("".join(frame))
+        terminal.flush()
+        time.sleep(0.12)
+PY_EOF
+    LOGO_ANIMATION_PID=$!
+}
+
+stop_logo_animation() {
+    if [ -n "${LOGO_ANIMATION_PID:-}" ] && kill -0 "$LOGO_ANIMATION_PID" 2>/dev/null; then
+        kill "$LOGO_ANIMATION_PID" 2>/dev/null || true
+        wait "$LOGO_ANIMATION_PID" 2>/dev/null || true
+    fi
+    LOGO_ANIMATION_PID=""
+}
+
+restore_terminal_cursor() {
+    stop_logo_animation
+    # Restore the terminal's normal cursor blinking when the CLI exits.
+    [ -t 1 ] && printf '\033[?12h' > /dev/tty 2>/dev/null || true
+}
+
+# All prompts use the same lifecycle, including prompts in submenus such as
+# Update, Panel Access, and Domain & SSL.  `builtin` avoids recursively calling
+# this wrapper while preserving every regular `read` option used below.
+read() {
+    start_logo_animation
+    builtin read "$@"
+    local read_status=$?
+    stop_logo_animation
+    return "$read_status"
+}
+
+trap restore_terminal_cursor EXIT
 
 check_root() {
     if [ "$(id -u)" -ne 0 ]; then
