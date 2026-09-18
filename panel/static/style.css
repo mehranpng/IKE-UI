@@ -342,10 +342,40 @@ body.modal-open {
     .api-key-actions, .api-key-actions .btn { width: 100%; }
 }
 
-.api-doc-page { max-width: 1280px; margin: 0 auto; padding: 2rem 1.5rem 5rem; }
-.api-doc-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 2rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-subtle); }
-.api-doc-header > div:first-child { display: flex; align-items: center; gap: .75rem; }
-.api-doc-header .brand-title { font-family: var(--font-heading); font-size: 1.4rem; font-weight: 800; }
+.api-doc-page { max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.5rem 5rem; }
+.api-doc-header {
+    position: sticky;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 900;
+    background: rgba(15, 17, 26, 0.9);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 0.75rem 1.5rem;
+}
+.api-doc-header-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+}
+.api-doc-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+.api-doc-header .brand-title { font-family: var(--font-heading); font-size: 1.35rem; font-weight: 800; }
+.api-doc-page .api-doc-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
 
 .api-menu-toggle {
     display: inline-flex;
@@ -408,8 +438,8 @@ body.modal-open {
     box-shadow: 0 0 50px rgba(0, 0, 0, 0.85);
     display: flex;
     flex-direction: column;
-    padding: 1.5rem 1.25rem 3.5rem;
-    padding-bottom: max(3.5rem, env(safe-area-inset-bottom, 2.5rem));
+    padding: 1.5rem 1.25rem;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem));
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
@@ -457,7 +487,7 @@ body.modal-open {
 }
 
 .api-doc-nav-group { margin-bottom: 1.5rem; }
-.api-doc-nav-group:last-child { margin-bottom: 2.5rem; padding-bottom: 2rem; }
+.api-doc-nav-group:last-child { margin-bottom: 0.5rem; padding-bottom: 0; }
 .api-doc-nav-title { font-size: 0.72rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem; }
 .api-doc-nav-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem; }
 .api-doc-nav-link {
@@ -496,14 +526,14 @@ body.modal-open {
     flex-direction: column;
     gap: 1.75rem;
 }
-.api-doc-card { background: var(--bg-card); border: var(--border-width) solid var(--border-dark); border-radius: var(--radius-lg); padding: 1.75rem; box-shadow: var(--shadow-md); scroll-margin-top: 2rem; }
+.api-doc-card { background: var(--bg-card); border: var(--border-width) solid var(--border-dark); border-radius: var(--radius-lg); padding: 1.75rem; box-shadow: var(--shadow-md); scroll-margin-top: 4.25rem; }
 .api-doc-card h1 { font-family: var(--font-heading); font-size: clamp(1.6rem, 3.5vw, 2.3rem); margin-bottom: 0.5rem; }
 .api-doc-card h2 { font-family: var(--font-heading); font-size: 1.25rem; margin-top: 0; margin-bottom: 0.75rem; }
 .api-doc-card p { color: var(--text-secondary); line-height: 1.65; font-size: 0.92rem; }
 .api-doc-kicker { color: var(--accent-cyan); font-family: var(--font-mono); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 0.35rem; }
 .api-doc-lead { color: var(--text-secondary); font-size: 1.05rem; line-height: 1.6; margin-bottom: 1.25rem; }
 
-.api-endpoint-card { background: var(--bg-card); border: 1px solid var(--border-dark); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm); scroll-margin-top: 2rem; }
+.api-endpoint-card { background: var(--bg-card); border: 1px solid var(--border-dark); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm); scroll-margin-top: 4.25rem; }
 .api-endpoint-header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); margin-bottom: 1rem; }
 .api-endpoint-route { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
 .api-endpoint-path { font-family: var(--font-mono); font-weight: 700; font-size: 0.98rem; color: var(--text-primary); overflow-wrap: anywhere; }
@@ -537,11 +567,11 @@ body.modal-open {
 .api-doc-base-url code { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700; color: var(--accent-cyan); overflow-wrap: anywhere; }
 
 @media (max-width: 640px) {
-    .api-doc-header { flex-direction: column; align-items: stretch; gap: 0.85rem; }
-    .api-doc-header > div:first-child { display: flex; align-items: center; justify-content: flex-start; gap: 0.65rem; }
-    .api-doc-header .api-doc-actions { width: 100%; display: flex; gap: 0.5rem; }
-    .api-doc-header .api-doc-actions .btn { flex: 1; justify-content: center; }
-    .api-doc-page { padding: 1rem 0.75rem 3rem; }
+    .api-doc-header { padding: 0.65rem 1rem; }
+    .api-doc-header .brand-title { font-size: 1.2rem; }
+    .api-doc-page { padding: 1.15rem 0.75rem 3rem; }
+    .api-doc-page .api-doc-actions { width: 100%; display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
+    .api-doc-page .api-doc-actions .btn { flex: 1; justify-content: center; }
     .api-doc-card, .api-endpoint-card { padding: 1.15rem; }
 }
 
