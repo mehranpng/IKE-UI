@@ -248,8 +248,79 @@ show_banner() {
             APP_VERSION="$disk_ver"
         fi
     fi
-    echo -e "${PURPLE}${BOLD}"
-    cat << BANNER
+    if [ -t 1 ] && command -v python3 >/dev/null 2>&1; then
+        python3 - "$cur_ver" << 'PY_EOF'
+import math, sys, time
+
+cur_ver = sys.argv[1] if len(sys.argv) > 1 else ""
+
+BANNER_LOGO = [
+    "  ██╗██╗  ██╗███████╗      ██╗   ██╗██╗",
+    "  ██║██║ ██╔╝██╔════╝      ██║   ██║██║",
+    "  ██║█████╔╝ █████╗  █████╗██║   ██║██║",
+    "  ██║██╔═██╗ ██╔══╝  ╚════╝██║   ██║██║",
+    "  ██║██║  ██╗███████╗      ╚██████╔╝██║",
+    "  ╚═╝╚═╝  ╚═╝╚══════╝       ╚═════╝ ╚═╝",
+]
+
+SUBTITLES = [
+    f"        IKE-UI Manager v{cur_ver}",
+    "   https://github.com/mehranpng/IKE-UI",
+]
+
+COLOR_VIOLET     = (165, 60, 150)
+COLOR_ROSE       = (235, 65, 140)
+COLOR_LIGHT_PINK = (255, 175, 215)
+COLOR_SUB        = (250, 140, 190)
+
+def lerp(c1, c2, factor):
+    f = max(0.0, min(1.0, factor))
+    return int(c1[0] + (c2[0] - c1[0]) * f), int(c1[1] + (c2[1] - c1[1]) * f), int(c1[2] + (c2[2] - c1[2]) * f)
+
+def smoothstep(x):
+    x = max(0.0, min(1.0, x))
+    return x * x * (3.0 - 2.0 * x)
+
+def render(t):
+    speed = 0.82
+    lines = []
+    for y, line in enumerate(BANNER_LOGO):
+        chars = []
+        for x, char in enumerate(line):
+            if char == " ":
+                line_chars = " "
+                chars.append(line_chars)
+                continue
+            u = x * 0.11
+            v = y * 0.32
+            fb = math.sin(u * 0.95 + math.cos(v * 1.15 + t * (speed * 0.85)) * 0.85 - t * speed) * 0.5 + 0.5
+            fg = math.cos(u * 0.80 - math.sin(v * 0.95 - t * (speed * 0.70)) * 0.75 + t * (speed * 0.90)) * 0.5 + 0.5
+            base = lerp(COLOR_VIOLET, COLOR_ROSE, smoothstep(fb))
+            col = lerp(base, COLOR_LIGHT_PINK, smoothstep(fg) * 0.88)
+            chars.append(f"\033[1;38;2;{col[0]};{col[1]};{col[2]}m{char}")
+        lines.append("".join(chars) + "\033[0m")
+    for sub in SUBTITLES:
+        lines.append(f"\033[38;2;{COLOR_SUB[0]};{COLOR_SUB[1]};{COLOR_SUB[2]}m{sub}\033[0m")
+    return "\n".join(lines)
+
+sys.stdout.write("\033[?25l")
+try:
+    for f in range(20):
+        t = f * 0.04
+        frame = render(t)
+        if f == 0:
+            sys.stdout.write(frame + "\n")
+        else:
+            sys.stdout.write("\033[8A" + frame + "\n")
+        sys.stdout.flush()
+        time.sleep(0.038)
+finally:
+    sys.stdout.write("\033[?25h\033[0m")
+    sys.stdout.flush()
+PY_EOF
+    else
+        echo -e "${PURPLE}${BOLD}"
+        cat << BANNER
   ██╗██╗  ██╗███████╗      ██╗   ██╗██╗
   ██║██║ ██╔╝██╔════╝      ██║   ██║██║
   ██║█████╔╝ █████╗  █████╗██║   ██║██║
@@ -259,6 +330,7 @@ show_banner() {
         IKE-UI Manager v${cur_ver}
    https://github.com/mehranpng/IKE-UI
 BANNER
+    fi
     echo -e "${CYAN}====================================================${NC}"
 
     local panel_domain
