@@ -1826,44 +1826,31 @@ def render_logo(t):
         lines.append("".join(chars) + "\033[0m")
     return lines
 
-def build_frame(t, buf):
-    cols, rows = shutil.get_terminal_size((80, 24))
-    lines = render_logo(t)
-    lines.append(f"\033[38;2;{COLOR_SUB[0]};{COLOR_SUB[1]};{COLOR_SUB[2]}m        IKE-UI Manager v{cur_ver}\033[0m")
-    lines.append(f"\033[38;2;{COLOR_SUB[0]};{COLOR_SUB[1]};{COLOR_SUB[2]}m   https://github.com/mehranpng/IKE-UI\033[0m")
-    lines.append("\033[36m====================================================\033[0m")
-    if domain:
-        port_disp = f":{port}" if port and port != "443" else ""
-        path_disp = "/" + path.lstrip("/") if path and path != "/" else ""
-        st_badge = "\033[32m● Online\033[0m" if status == "Online" else "\033[31m○ Stopped\033[0m"
-        lines.append(f" \033[1mPanel URL:\033[0m \033[36mhttps://{domain}{port_disp}{path_disp}\033[0m [{st_badge}]")
-        lines.append("\033[36m====================================================\033[0m")
+initial_lines = render_logo(0)
+initial_lines.append(f"\033[38;2;{COLOR_SUB[0]};{COLOR_SUB[1]};{COLOR_SUB[2]}m        IKE-UI Manager v{cur_ver}\033[0m")
+initial_lines.append(f"\033[38;2;{COLOR_SUB[0]};{COLOR_SUB[1]};{COLOR_SUB[2]}m   https://github.com/mehranpng/IKE-UI\033[0m")
+initial_lines.append("\033[36m====================================================\033[0m")
+if domain:
+    port_disp = f":{port}" if port and port != "443" else ""
+    path_disp = "/" + path.lstrip("/") if path and path != "/" else ""
+    st_badge = "\033[32m● Online\033[0m" if status == "Online" else "\033[31m○ Stopped\033[0m"
+    initial_lines.append(f" \033[1mPanel URL:\033[0m \033[36mhttps://{domain}{port_disp}{path_disp}\033[0m [{st_badge}]")
+    initial_lines.append("\033[36m====================================================\033[0m")
 
-    if rows < 25:
-        lines.append("\033[1mSelect an action:\033[0m")
-        lines.append("  \033[36m1)\033[0m Install/Reinstall   \033[36m6)\033[0m Status & VPN")
-        lines.append("  \033[36m2)\033[0m Update IKE-UI        \033[36m7)\033[0m View Live Logs")
-        lines.append("  \033[36m3)\033[0m Restart Services     \033[36m8)\033[0m Admin & Settings")
-        lines.append("  \033[36m4)\033[0m Stop Services        \033[36m9)\033[0m Domain & SSL")
-        lines.append("  \033[36m5)\033[0m Start Services      \033[36m10)\033[0m Uninstall")
-        lines.append("  \033[36m0)\033[0m Exit")
-    else:
-        lines.append("\033[1mSelect an action:\033[0m")
-        lines.append("  \033[36m1)\033[0m  Install Panel / Reinstall")
-        lines.append("  \033[36m2)\033[0m  Update IKE-UI")
-        lines.append("  \033[36m3)\033[0m  Restart All Services (StrongSwan, Panel, Nginx)")
-        lines.append("  \033[36m4)\033[0m  Stop All Services")
-        lines.append("  \033[36m5)\033[0m  Start All Services")
-        lines.append("  \033[36m6)\033[0m  Check Status & Active VPN Connections")
-        lines.append("  \033[36m7)\033[0m  View Live Logs")
-        lines.append("  \033[36m8)\033[0m  Panel Access & Admin Settings")
-        lines.append("  \033[36m9)\033[0m  Domain & SSL Management")
-        lines.append("  \033[36m10)\033[0m Uninstall IKE-UI")
-        lines.append("  \033[36m0)\033[0m  Exit")
+initial_lines.append("\033[1mSelect an action:\033[0m")
+initial_lines.append("  \033[36m1)\033[0m  Install Panel / Reinstall")
+initial_lines.append("  \033[36m2)\033[0m  Update IKE-UI")
+initial_lines.append("  \033[36m3)\033[0m  Restart All Services (StrongSwan, Panel, Nginx)")
+initial_lines.append("  \033[36m4)\033[0m  Stop All Services")
+initial_lines.append("  \033[36m5)\033[0m  Start All Services")
+initial_lines.append("  \033[36m6)\033[0m  Check Status & Active VPN Connections")
+initial_lines.append("  \033[36m7)\033[0m  View Live Logs")
+initial_lines.append("  \033[36m8)\033[0m  Panel Access & Admin Settings")
+initial_lines.append("  \033[36m9)\033[0m  Domain & SSL Management")
+initial_lines.append("  \033[36m10)\033[0m Uninstall IKE-UI")
+initial_lines.append("  \033[36m0)\033[0m  Exit")
 
-    prompt = f"Enter your choice [0-10]: {buf}"
-    return "\033[?25l\033[H" + "\n".join(lines) + "\n" + prompt + "\033[K\033[J\033[?25h"
-
+prompt_row = len(initial_lines) + 1
 buf = ""
 start_time = time.time()
 
@@ -1875,7 +1862,7 @@ except Exception:
     pass
 
 try:
-    tty_out.write("\033[2J\033[H")
+    tty_out.write("\033[2J\033[H" + "\n".join(initial_lines) + "\nEnter your choice [0-10]: ")
     tty_out.flush()
 except Exception:
     pass
@@ -1883,15 +1870,15 @@ except Exception:
 try:
     while True:
         t = time.time() - start_time
-        frame = build_frame(t, buf)
+        logo_update = "\033[H" + "\n".join(render_logo(t)) + f"\033[{prompt_row};{27 + len(buf)}H"
         try:
-            tty_out.write(frame)
+            tty_out.write(logo_update)
             tty_out.flush()
         except Exception:
             break
 
         try:
-            r, _, _ = select.select([tty_in], [], [], 0.035)
+            r, _, _ = select.select([tty_in], [], [], 0.065)
         except Exception:
             break
 
@@ -1928,6 +1915,12 @@ try:
                     buf += ch
                 else:
                     buf = ch
+
+            try:
+                tty_out.write(f"\033[{prompt_row};1H\033[KEnter your choice [0-10]: {buf}")
+                tty_out.flush()
+            except Exception:
+                pass
 except KeyboardInterrupt:
     buf = "0"
 finally:
@@ -1938,7 +1931,7 @@ finally:
             pass
     if tty_out:
         try:
-            tty_out.write("\033[?25h\n")
+            tty_out.write("\n")
             tty_out.flush()
         except Exception:
             pass
