@@ -838,6 +838,7 @@
 
     <script>
         const BASE_PATH = "{{ request.script_root }}";
+        const PORTAL_BASE_URL = "{{ portal_base_url }}";
 
         function showToast(message, type = 'error', duration = 3500) {
             const container = document.getElementById('toastContainer');
@@ -1321,6 +1322,9 @@
         }
 
         function getUserSubLink(username) {
+            if (typeof PORTAL_BASE_URL !== 'undefined' && PORTAL_BASE_URL) {
+                return `${PORTAL_BASE_URL}/sub?u=${encodeURIComponent(username || '')}`;
+            }
             const portStr = (location.port && location.port !== '443' && location.port !== '80') ? (':' + location.port) : '';
             return `${location.protocol}//${location.hostname}${portStr}/sub?u=${encodeURIComponent(username || '')}`;
         }

@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.8.6"
+APP_VERSION="1.8.7"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"
@@ -257,7 +257,7 @@ show_banner() {
   ██║██║  ██╗███████╗      ╚██████╔╝██║
   ╚═╝╚═╝  ╚═╝╚══════╝       ╚═════╝ ╚═╝
          IKE-UI Manager v${cur_ver}
-     https://github.com/mehranpng/IKE-UI
+    https://github.com/mehranpng/IKE-UI
 BANNER
     echo -e "${CYAN}====================================================${NC}"
 
@@ -373,7 +373,7 @@ bootstrap_environment() {
         if [ -d "$INSTALL_DIR/.git" ]; then
             cd "$INSTALL_DIR"
             git remote set-url origin "$REPO_URL" 2>/dev/null || true
-            git fetch --all --tags --prune
+            git fetch --all --tags --prune --force
             git reset --hard origin/main
         else
             if [ -d "$INSTALL_DIR" ]; then
@@ -854,13 +854,8 @@ update_ike_ui() {
         channel_name="Latest Commit (Dev / main branch)"
     fi
     echo -e "${YELLOW}[*] Target Update Channel:${NC} ${CYAN}${channel_name}${NC}"
-    read -rp "Are you sure you want to proceed with update? [y/N]: " confirm_update
-    if [[ ! "$confirm_update" =~ ^[yY]([eE][sS])?$ ]]; then
-        echo -e "${YELLOW}[*] Update cancelled.${NC}"
-        return 0 2>/dev/null || exit 0
-    fi
-
     echo ""
+
     if ! command -v git >/dev/null 2>&1; then
         echo -e "${YELLOW}[*] Installing git...${NC}"
         apt-get update -y && apt-get install -y git
@@ -871,37 +866,103 @@ update_ike_ui() {
 
     if [ -d "$INSTALL_DIR/.git" ]; then
         git remote set-url origin "$REPO_URL" 2>/dev/null || true
-        echo -e "${CYAN}[1/4] Fetching latest tags and commits from GitHub...${NC}"
-        git fetch --all --tags --prune
+        echo -e "${CYAN}[*] Checking for updates from GitHub...${NC}"
+        git fetch --all --tags --prune --force
     else
-        echo -e "${YELLOW}[1/4] Initializing Git repository in ${INSTALL_DIR}...${NC}"
+        echo -e "${YELLOW}[*] Initializing Git repository in ${INSTALL_DIR}...${NC}"
         TEMP_CLONE="/tmp/ike-ui-update-temp"
         rm -rf "$TEMP_CLONE"
         git clone "$REPO_URL" "$TEMP_CLONE"
         cp -r "$TEMP_CLONE/.git" "$INSTALL_DIR/"
         rm -rf "$TEMP_CLONE"
-        git fetch --all --tags --prune
+        git fetch --all --tags --prune --force
         echo -e "${GREEN}[+] Converted to tracked Git repository.${NC}"
     fi
 
+    local cur_ver="$APP_VERSION"
+    if [ -f "${INSTALL_DIR}/install.sh" ]; then
+        local disk_ver
+        disk_ver=$(grep -oP '^APP_VERSION=["\x27]?\K[^"\x27\s]+' "${INSTALL_DIR}/install.sh" 2>/dev/null || true)
+        if [ -n "$disk_ver" ]; then
+            cur_ver="$disk_ver"
+        fi
+    fi
+    if [ -z "$cur_ver" ] && [ -f "${INSTALL_DIR}/panel/app.py" ]; then
+        local app_ver
+        app_ver=$(grep -oP '^APP_VERSION\s*=\s*["\x27]?\K[^"\x27\s]+' "${INSTALL_DIR}/panel/app.py" 2>/dev/null || true)
+        if [ -n "$app_ver" ]; then
+            cur_ver="$app_ver"
+        fi
+    fi
+    local cur_ver_clean="${cur_ver#v}"
+
+    local latest_tag=""
     case "$target_channel" in
         release|stable|tag|1)
-            local latest_tag
             latest_tag=$(git tag -l --sort=-v:refname | grep -E '^v?[0-9]+\.[0-9]+' | head -n 1)
+            local latest_tag_clean="${latest_tag#v}"
+
+            local has_new_version=0
             if [ -n "$latest_tag" ]; then
-                echo -e "${CYAN}[*] Updating to latest release tag: ${GREEN}${BOLD}${latest_tag}${NC}..."
-                git checkout -B main origin/main 2>/dev/null || true
-                git reset --hard "$latest_tag"
-                echo -e "${GREEN}[+] Reset repository to release tag ${latest_tag}.${NC}"
-            else
-                echo -e "${YELLOW}[!] No release tags found. Falling back to latest commit on main...${NC}"
-                git checkout -B main origin/main 2>/dev/null || true
-                git reset --hard origin/main
-                echo -e "${GREEN}[+] Git repository updated to latest commit.${NC}"
+                local head_hash tag_hash
+                head_hash=$(git rev-parse HEAD 2>/dev/null || true)
+                tag_hash=$(git rev-parse "${latest_tag}^{commit}" 2>/dev/null || true)
+
+                if [ "$latest_tag_clean" != "$cur_ver_clean" ]; then
+                    has_new_version=1
+                elif [ -n "$tag_hash" ] && [ "$head_hash" != "$tag_hash" ]; then
+                    has_new_version=1
+                fi
             fi
+
+            if [ "$has_new_version" -eq 0 ]; then
+                echo ""
+                echo -e "${YELLOW}[*] No new version exists.${NC}"
+                echo -e "    You are already running the latest version: ${GREEN}${BOLD}v${cur_ver_clean}${NC}"
+                echo ""
+                read -rp "Press Enter to return..." _dummy
+                return 0 2>/dev/null || exit 0
+            fi
+
+            echo ""
+            echo -e "${GREEN}[+] A new version is available: ${BOLD}${latest_tag}${NC} (Current: ${YELLOW}v${cur_ver_clean}${NC})"
+            read -rp "Do you want to update to this version? [y/N]: " confirm_update
+            if [[ ! "$confirm_update" =~ ^[yY]([eE][sS])?$ ]]; then
+                echo -e "${YELLOW}[*] Update cancelled.${NC}"
+                return 0 2>/dev/null || exit 0
+            fi
+
+            echo ""
+            echo -e "${CYAN}[1/4] Updating to latest release tag: ${GREEN}${BOLD}${latest_tag}${NC}..."
+            git checkout -B main origin/main 2>/dev/null || true
+            git reset --hard "$latest_tag"
+            echo -e "${GREEN}[+] Reset repository to release tag ${latest_tag}.${NC}"
             ;;
         dev|main|commit|2)
-            echo -e "${CYAN}[*] Pulling latest development commits from main branch...${NC}"
+            local head_hash origin_hash
+            head_hash=$(git rev-parse HEAD 2>/dev/null || true)
+            origin_hash=$(git rev-parse origin/main 2>/dev/null || true)
+
+            if [ -n "$origin_hash" ] && [ "$head_hash" = "$origin_hash" ]; then
+                echo ""
+                echo -e "${YELLOW}[*] No new updates exist.${NC}"
+                echo -e "    You are already on the latest commit: ${GREEN}${head_hash:0:7}${NC}"
+                echo ""
+                read -rp "Press Enter to return..." _dummy
+                return 0 2>/dev/null || exit 0
+            fi
+
+            echo ""
+            echo -e "${GREEN}[+] New updates available on main branch!${NC}"
+            echo -e "    Current: ${YELLOW}${head_hash:0:7}${NC} -> Latest: ${GREEN}${origin_hash:0:7}${NC}"
+            read -rp "Do you want to update to this version? [y/N]: " confirm_update
+            if [[ ! "$confirm_update" =~ ^[yY]([eE][sS])?$ ]]; then
+                echo -e "${YELLOW}[*] Update cancelled.${NC}"
+                return 0 2>/dev/null || exit 0
+            fi
+
+            echo ""
+            echo -e "${CYAN}[1/4] Pulling latest development commits from main branch...${NC}"
             git checkout -B main origin/main 2>/dev/null || true
             git reset --hard origin/main
             echo -e "${GREEN}[+] Git repository updated to latest development commit.${NC}"
@@ -1009,6 +1070,11 @@ RENEW_EOF
             systemctl reload nginx 2>/dev/null || systemctl restart nginx 2>/dev/null || true
             echo -e "${GREEN}[+] Nginx configuration updated and reloaded.${NC}"
         fi
+    fi
+
+    if [ -f "${DB_PATH}" ] && [ -n "$cur_port" ]; then
+        sqlite3 "${DB_PATH}" "INSERT INTO system_config (key, value) VALUES ('panel_port', '${cur_port}') ON CONFLICT(key) DO UPDATE SET value = excluded.value;" 2>/dev/null || \
+        python3 -c "import sqlite3; conn=sqlite3.connect('${DB_PATH}'); cursor=conn.cursor(); cursor.execute(\"INSERT INTO system_config (key, value) VALUES ('panel_port', '${cur_port}') ON CONFLICT(key) DO UPDATE SET value = excluded.value\"); conn.commit(); conn.close()" 2>/dev/null || true
     fi
 
     if [ -f /etc/systemd/system/ike-ui.service ]; then

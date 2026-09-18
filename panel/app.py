@@ -19,7 +19,7 @@ import hashlib
 import hmac
 from functools import wraps
 from urllib.parse import quote
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, stream_with_context, send_file, abort
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, stream_with_context, send_file, abort, has_request_context
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
@@ -64,7 +64,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.8.6"
+APP_VERSION = "1.8.7"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
@@ -307,10 +307,63 @@ def set_system_config(key, value):
     except Exception as e:
         print(f"[!] Error setting config {key}: {e}", file=sys.stderr)
 
+def get_server_domain():
+    domain = get_system_config("server_domain", "").strip()
+    if domain and domain != "vpn.example.com":
+        return domain
+
+    for conf_path in ("/etc/nginx/sites-available/ike-ui", "/etc/nginx/sites-enabled/ike-ui"):
+        if os.path.exists(conf_path):
+            try:
+                with open(conf_path, "r") as f:
+                    content = f.read()
+                    m_dom = re.search(r'server_name\s+([^;]+);', content)
+                    if m_dom:
+                        d = m_dom.group(1).strip()
+                        if d:
+                            return d
+            except Exception:
+                pass
+
+    return domain or SERVER_DOMAIN
+
+def get_panel_port():
+    if has_request_context():
+        xf_port = str(request.headers.get("X-Forwarded-Port", "")).strip()
+        if xf_port and xf_port.isdigit():
+            return xf_port
+        host_hdr = str(request.headers.get("X-Forwarded-Host", "") or request.host or "").strip()
+        if ":" in host_hdr:
+            p = host_hdr.split(":")[-1].strip()
+            if p.isdigit():
+                return p
+        env_port = str(request.environ.get("SERVER_PORT", "")).strip()
+        if env_port and env_port.isdigit() and env_port not in ("8000",):
+            return env_port
+
+    db_port = str(get_system_config("panel_port", "") or "").strip()
+    if db_port and db_port.isdigit() and db_port != "443":
+        return db_port
+
+    for conf_path in ("/etc/nginx/sites-available/ike-ui", "/etc/nginx/sites-enabled/ike-ui"):
+        if os.path.exists(conf_path):
+            try:
+                with open(conf_path, "r") as f:
+                    content = f.read()
+                    m_port = re.search(r'listen\s+([0-9]+)\s+ssl', content)
+                    if m_port:
+                        nginx_port = m_port.group(1).strip()
+                        if nginx_port.isdigit():
+                            return nginx_port
+            except Exception:
+                pass
+
+    return db_port if (db_port and db_port.isdigit()) else "443"
+
 def get_public_base_url():
-    domain = get_system_config("server_domain", SERVER_DOMAIN)
-    port = get_system_config("panel_port", "443")
-    port_suffix = f":{port}" if str(port) not in ("", "443") else ""
+    domain = get_server_domain()
+    port = get_panel_port()
+    port_suffix = f":{port}" if str(port) not in ("", "443", "80") else ""
     return f"https://{domain}{port_suffix}"
 
 def get_panel_base_url():
@@ -442,6 +495,25 @@ def init_db():
             default_hash = generate_password_hash(rand_admin_pass)
             now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             cursor.execute("INSERT INTO admin (username, password_hash, created_at) VALUES (?, ?, ?)", (rand_admin_user, default_hash, now))
+
+        cursor.execute("SELECT value FROM system_config WHERE key = 'panel_port'")
+        port_row = cursor.fetchone()
+        if not port_row or not port_row["value"]:
+            extracted_port = "443"
+            for conf_path in ("/etc/nginx/sites-available/ike-ui", "/etc/nginx/sites-enabled/ike-ui"):
+                if os.path.exists(conf_path):
+                    try:
+                        with open(conf_path, "r") as f:
+                            m_port = re.search(r'listen\s+([0-9]+)\s+ssl', f.read())
+                            if m_port and m_port.group(1).strip().isdigit():
+                                extracted_port = m_port.group(1).strip()
+                                break
+                    except Exception:
+                        pass
+            cursor.execute("""
+                INSERT INTO system_config (key, value) VALUES ('panel_port', ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """, (extracted_port,))
 
         conn.commit()
         conn.close()
@@ -1433,6 +1505,8 @@ def format_user_payload(u, online):
         "is_active": is_act,
         "max_devices": max_dev,
         "note": note,
+        "portal_url": f"{get_public_base_url()}/sub?u={quote(str(uname))}",
+        "sub_url": f"{get_public_base_url()}/sub?u={quote(str(uname))}",
         "live_net": live_net
     }
 
@@ -1688,7 +1762,8 @@ def dashboard():
                            online_count=online_count,
                            total_traffic_bytes=total_traffic_bytes,
                            sys=sys_metrics,
-                           server_domain=SERVER_DOMAIN)
+                           server_domain=get_server_domain(),
+                           portal_base_url=get_public_base_url())
 
 @app.route("/api/users", methods=["GET"])
 @login_required
@@ -1938,7 +2013,9 @@ def add_user():
                 "user_id": user_id,
                 "username": username,
                 "password": password,
-                "server": SERVER_DOMAIN,
+                "server": get_server_domain(),
+                "portal_url": f"{get_public_base_url()}/sub?u={quote(str(username))}",
+                "sub_url": f"{get_public_base_url()}/sub?u={quote(str(username))}",
                 "max_traffic": traffic_display,
                 "max_traffic_gb": max_traffic_gb,
                 "expire": expire_display,
@@ -2066,7 +2143,9 @@ def edit_user(user_id):
             "password_changed": pwd_was_changed,
             "username": user["username"],
             "password": new_password,
-            "server": SERVER_DOMAIN,
+            "server": get_server_domain(),
+            "portal_url": f"{get_public_base_url()}/sub?u={quote(str(user['username']))}",
+            "sub_url": f"{get_public_base_url()}/sub?u={quote(str(user['username']))}",
             "max_traffic": traffic_display,
             "max_traffic_gb": max_traffic_gb,
             "expire": expire_display,
@@ -2400,22 +2479,8 @@ RESERVED_PANEL_PATHS = {
 
 def update_nginx_panel_path(new_path):
     try:
-        domain = get_system_config("server_domain", SERVER_DOMAIN)
-        port = get_system_config("panel_port", "443")
-
-        conf_path = "/etc/nginx/sites-available/ike-ui"
-        if os.path.exists(conf_path):
-            try:
-                with open(conf_path, "r") as f:
-                    content = f.read()
-                    m_dom = re.search(r'server_name\s+([^;]+);', content)
-                    if m_dom:
-                        domain = m_dom.group(1).strip()
-                    m_port = re.search(r'listen\s+([0-9]+)\s+ssl', content)
-                    if m_port:
-                        port = m_port.group(1).strip()
-            except Exception:
-                pass
+        domain = get_server_domain()
+        port = get_panel_port()
 
         clean_path = re.sub(r'^/+|/+$', '', str(new_path or "").strip())
         if clean_path.lower() in ("/", "root"):
@@ -2557,7 +2622,7 @@ def settings():
     vpn_status = (get_system_config("vpn_enabled", "1") == "1")
     sub_portal_status = (get_system_config("sub_portal_enabled", "1") == "1")
     cur_path = get_system_config("panel_path", "")
-    server_domain = get_system_config("server_domain", SERVER_DOMAIN)
+    server_domain = get_server_domain()
     sub_portal_url = f"{get_public_base_url()}/sub"
     try:
         session_timeout = int(get_system_config("admin_session_timeout", "4320"))
@@ -2740,22 +2805,8 @@ def update_path():
         return redirect(url_for("settings"))
 
     clean_path = result
-    domain = get_system_config("server_domain", SERVER_DOMAIN)
-    port = get_system_config("panel_port", "443")
-
-    conf_path = "/etc/nginx/sites-available/ike-ui"
-    if os.path.exists(conf_path):
-        try:
-            with open(conf_path, "r") as f:
-                content = f.read()
-                m_dom = re.search(r'server_name\s+([^;]+);', content)
-                if m_dom:
-                    domain = m_dom.group(1).strip()
-                m_port = re.search(r'listen\s+([0-9]+)\s+ssl', content)
-                if m_port:
-                    port = m_port.group(1).strip()
-        except Exception:
-            pass
+    domain = get_server_domain()
+    port = get_panel_port()
 
     port_str = f":{port}" if str(port) != "443" else ""
     path_str = f"/{clean_path}" if clean_path else ""
