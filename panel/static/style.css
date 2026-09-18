@@ -294,6 +294,23 @@ body.modal-open {
     background: rgba(255, 255, 255, 0.05);
 }
 
+.btn-outline-warning {
+    background: transparent;
+    color: var(--warning);
+    border: var(--border-width) solid var(--warning);
+    box-shadow: var(--shadow-xs);
+}
+
+.btn-outline-warning:hover {
+    background: var(--warning-bg);
+    border-color: var(--warning);
+    color: #ffc933;
+}
+
+#confirmModal {
+    z-index: 1100;
+}
+
 .api-key-panel,
 .api-base-url-row {
     display: flex;

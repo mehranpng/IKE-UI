@@ -64,7 +64,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.8.7"
+APP_VERSION = "1.8.8"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
@@ -2215,6 +2215,35 @@ def delete_user(user_id):
         conn.close()
     return redirect(url_for("dashboard"))
 
+@app.route("/user/reset-traffic/<int:user_id>", methods=["POST"])
+@login_required
+def reset_user_traffic(user_id):
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.best == "application/json"
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+    user = cursor.fetchone()
+    if user:
+        cursor.execute("UPDATE users SET used_traffic_bytes = 0 WHERE id = ?", (user_id,))
+        conn.commit()
+        conn.close()
+        invalidate_online_cache()
+
+        if is_ajax:
+            return jsonify({
+                "success": True,
+                "user_id": user_id,
+                "username": user["username"],
+                "message": f"Traffic usage for user '{user['username']}' has been reset to 0."
+            })
+        flash(f"Traffic usage for user '{user['username']}' has been reset to 0.", "success")
+    else:
+        conn.close()
+        if is_ajax:
+            return jsonify({"success": False, "error": "User not found!"}), 404
+        flash("User not found!", "danger")
+    return redirect(url_for("dashboard"))
+
 def api_error(message, status=400):
     return jsonify({"success": False, "error": message}), status
 
@@ -2330,7 +2359,9 @@ def public_api_stats():
 
     return jsonify({
         "success": True,
+        "version": APP_VERSION,
         "stats": {
+            "version": APP_VERSION,
             "total_accounts": int(row["total_accounts"] or 0) if row else 0,
             "active_users": int(row["active_users"] or 0) if row else 0,
             "online_users": online_users,
@@ -2338,6 +2369,17 @@ def public_api_stats():
             "total_consumption": format_bytes_val(total_consumption_bytes)
         },
         "system": get_system_metrics()
+    })
+
+@app.route("/api/v1/ping", methods=["GET"])
+@api_auth_required
+def public_api_ping():
+    now = datetime.datetime.now()
+    return jsonify({
+        "success": True,
+        "message": "pong",
+        "timestamp": int(now.timestamp()),
+        "server_time": now.strftime("%Y-%m-%d %H:%M:%S")
     })
 
 @app.route("/api/v1/users/<int:user_id>", methods=["GET"])
@@ -2456,6 +2498,47 @@ def public_api_delete_user(user_id):
     sync_ipsec_secrets()
     disconnect_user_sas(user["username"])
     return jsonify({"success": True, "message": f"User '{user['username']}' deleted."})
+
+@app.route("/api/v1/users/<int:user_id>/reset-traffic", methods=["POST"])
+@api_auth_required
+def public_api_reset_traffic(user_id):
+    user = api_user_by_id(user_id)
+    if not user:
+        return api_error("User not found.", 404)
+    conn = get_db()
+    conn.execute("UPDATE users SET used_traffic_bytes = 0 WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+    invalidate_online_cache()
+    updated = api_user_by_id(user_id)
+    return jsonify({
+        "success": True,
+        "message": f"Traffic usage for user '{user['username']}' has been reset to 0.",
+        "user": api_user_payload(updated)
+    })
+
+@app.route("/api/v1/users/check-username", methods=["GET"])
+@app.route("/api/v1/users/check-username/<username>", methods=["GET"])
+@api_auth_required
+def public_api_check_username(username=None):
+    if not username:
+        username = request.args.get("username", "").strip()
+    else:
+        username = str(username).strip()
+    if not username:
+        return api_error("username parameter is required.", 400)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (username,))
+    existing = cursor.fetchone()
+    conn.close()
+    is_available = existing is None
+    return jsonify({
+        "success": True,
+        "username": username,
+        "available": is_available,
+        "message": "Username is available." if is_available else "Username is already taken."
+    })
 
 @app.route("/api/v1/docs")
 @login_required

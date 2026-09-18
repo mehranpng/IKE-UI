@@ -31,12 +31,15 @@ The full `sk-` key is shown only once when an administrator creates it. Store it
 | Method | Path | Description |
 | --- | --- | --- |
 | GET | `/stats` | Get dashboard statistics and current system metrics. |
+| GET | `/ping` | Ping the panel to test connectivity, response time, and authentication. |
 | GET | `/users` | List users. Query: `q`, `page`, `per_page`. |
 | POST | `/users` | Create a user. |
 | GET | `/users/{id}` | Get one user. |
+| GET | `/users/check-username` | Check if a username is available or already in use. Query: `username`. |
 | PATCH / PUT | `/users/{id}` | Edit user fields. |
 | POST | `/users/{id}/password` | Change password. |
 | POST | `/users/{id}/status` | Enable or disable a user. |
+| POST | `/users/{id}/reset-traffic` | Reset consumed traffic for a user back to 0. |
 | DELETE | `/users/{id}` | Delete user and disconnect active sessions. |
 | GET | `/backup/users` | Download a users-only SQLite backup file. |
 | POST | `/restore/users` | Restore user accounts from an SQLite database backup file. |
@@ -53,7 +56,9 @@ Example response:
 ```json
 {
   "success": true,
+  "version": "1.8.8",
   "stats": {
+    "version": "1.8.8",
     "total_accounts": 11,
     "active_users": 11,
     "online_users": 6,
@@ -76,6 +81,26 @@ Example response:
 ```
 
 `total_consumption_bytes` is the exact numeric value; `total_consumption` is formatted for display. Network values are current receive and transmit speeds.
+
+## Ping panel
+
+Pings the panel to verify connectivity, measure latency, validate authentication, and retrieve the current server timestamp.
+
+```bash
+curl 'https://your-domain.example/api/v1/ping' \
+  -H 'X-API-Key: sk-your-key'
+```
+
+Example response:
+
+```json
+{
+  "success": true,
+  "message": "pong",
+  "timestamp": 1726660000,
+  "server_time": "2026-09-18 13:42:00"
+}
+```
 
 ## Create a user
 
@@ -152,6 +177,44 @@ Example list response:
 }
 ```
 
+## Check username availability
+
+Check whether a desired username is available or already taken:
+
+```bash
+curl 'https://your-domain.example/api/v1/users/check-username?username=alice' \
+  -H 'X-API-Key: sk-your-key'
+```
+
+Alternatively via path parameter:
+
+```bash
+curl 'https://your-domain.example/api/v1/users/check-username/alice' \
+  -H 'X-API-Key: sk-your-key'
+```
+
+Example response when available:
+
+```json
+{
+  "success": true,
+  "username": "alice",
+  "available": true,
+  "message": "Username is available."
+}
+```
+
+Example response when already in use:
+
+```json
+{
+  "success": true,
+  "username": "alice",
+  "available": false,
+  "message": "Username is already taken."
+}
+```
+
 ## Edit a user
 
 ```bash
@@ -189,6 +252,35 @@ Example status response:
     "id": 12,
     "username": "alice",
     "is_active": false
+  }
+}
+```
+
+## Reset user traffic
+
+Resets consumed traffic volume (`used_traffic_bytes`) for a specified user back to 0:
+
+```bash
+curl -X POST 'https://your-domain.example/api/v1/users/12/reset-traffic' \
+  -H 'X-API-Key: sk-your-key'
+```
+
+Example response:
+
+```json
+{
+  "success": true,
+  "message": "Traffic usage for user 'alice' has been reset to 0.",
+  "user": {
+    "id": 12,
+    "username": "alice",
+    "is_active": true,
+    "max_traffic_gb": 100,
+    "used_traffic_bytes": 0,
+    "expire_date": "2026-10-14 12:30:00",
+    "max_devices": 3,
+    "note": "Team A",
+    "portal_url": "https://your-domain.example/sub?u=alice"
   }
 }
 ```

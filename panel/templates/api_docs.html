@@ -74,6 +74,7 @@
                 </div>
                 <ul class="api-doc-nav-list">
                     <li><a href="#endpoint-stats" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /stats</a></li>
+                    <li><a href="#endpoint-ping" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /ping</a></li>
                 </ul>
             </div>
 
@@ -86,9 +87,11 @@
                     <li><a href="#endpoint-list-users" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /users</a></li>
                     <li><a href="#endpoint-create-user" class="api-doc-nav-link"><span class="badge-method badge-method-post" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">POST</span> /users</a></li>
                     <li><a href="#endpoint-get-user" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /users/{id}</a></li>
+                    <li><a href="#endpoint-check-username" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /users/check-username</a></li>
                     <li><a href="#endpoint-edit-user" class="api-doc-nav-link"><span class="badge-method badge-method-patch" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">PATCH</span> /users/{id}</a></li>
                     <li><a href="#endpoint-change-password" class="api-doc-nav-link"><span class="badge-method badge-method-post" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">POST</span> /users/{id}/pwd</a></li>
                     <li><a href="#endpoint-toggle-status" class="api-doc-nav-link"><span class="badge-method badge-method-post" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">POST</span> /users/{id}/status</a></li>
+                    <li><a href="#endpoint-reset-traffic" class="api-doc-nav-link"><span class="badge-method badge-method-post" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">POST</span> /users/{id}/reset-traffic</a></li>
                     <li><a href="#endpoint-delete-user" class="api-doc-nav-link"><span class="badge-method badge-method-delete" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">DEL</span> /users/{id}</a></li>
                 </ul>
             </div>
@@ -177,7 +180,9 @@
                     </div>
                     <pre><code>{
   "success": true,
+  "version": "1.8.8",
   "stats": {
+    "version": "1.8.8",
     "total_accounts": 12,
     "active_users": 10,
     "online_users": 3,
@@ -196,6 +201,40 @@
     "net_rx": "142.5 KB/s",
     "net_tx": "512.8 KB/s"
   }
+}</code></pre>
+                </div>
+            </section>
+
+            <!-- System & Metrics: GET /ping -->
+            <section class="api-endpoint-card" id="endpoint-ping">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-get">GET</span>
+                        <span class="api-endpoint-path">/ping</span>
+                    </div>
+                    <span class="settings-badge-cyan">Health &amp; Connectivity Ping</span>
+                </div>
+                <p>Pings the panel to verify server reachability, measure network latency, validate API authentication, and retrieve the current server timestamp.</p>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s '{{ api_base_url }}/ping' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>Response 200 OK</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>{
+  "success": true,
+  "message": "pong",
+  "timestamp": 1726660000,
+  "server_time": "2026-09-18 13:42:00"
 }</code></pre>
                 </div>
             </section>
@@ -428,6 +467,74 @@
                 </div>
             </section>
 
+            <!-- User Management: GET /users/check-username -->
+            <section class="api-endpoint-card" id="endpoint-check-username">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-get">GET</span>
+                        <span class="api-endpoint-path">/users/check-username</span>
+                    </div>
+                    <span class="settings-badge-cyan">Check Username Availability</span>
+                </div>
+                <p>Verifies whether a desired username is available or already in use. Case-insensitive lookup.</p>
+
+                <div class="api-param-table-wrap">
+                    <table class="api-param-table">
+                        <thead>
+                            <tr>
+                                <th>Query Parameter</th>
+                                <th>Type</th>
+                                <th>Required</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="api-param-name">username</td>
+                                <td class="api-param-type">string</td>
+                                <td><span class="badge-req badge-req-yes">Required</span></td>
+                                <td class="api-param-desc">The username to check for availability. Can also be supplied directly in path: <code>/users/check-username/{username}</code>.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s '{{ api_base_url }}/users/check-username?username=alice' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>Response 200 OK (Available)</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>{
+  "success": true,
+  "username": "alice",
+  "available": true,
+  "message": "Username is available."
+}</code></pre>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>Response 200 OK (Already Taken)</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>{
+  "success": true,
+  "username": "alice",
+  "available": false,
+  "message": "Username is already taken."
+}</code></pre>
+                </div>
+            </section>
+
             <!-- User Management: PATCH /users/{id} -->
             <section class="api-endpoint-card" id="endpoint-edit-user">
                 <div class="api-endpoint-header">
@@ -542,6 +649,49 @@
   -H 'X-API-Key: sk-your-key' \
   -H 'Content-Type: application/json' \
   -d '{"is_active": false}'</code></pre>
+                </div>
+            </section>
+
+            <!-- User Management: POST /users/{id}/reset-traffic -->
+            <section class="api-endpoint-card" id="endpoint-reset-traffic">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-post">POST</span>
+                        <span class="api-endpoint-path">/users/{id}/reset-traffic</span>
+                    </div>
+                    <span class="settings-badge-cyan">Reset Consumed Traffic</span>
+                </div>
+                <p>Resets the cumulative consumed traffic (<code>used_traffic_bytes</code>) for a specified user account back to 0.</p>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s -X POST '{{ api_base_url }}/users/2/reset-traffic' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>Response 200 OK</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>{
+  "success": true,
+  "message": "Traffic usage for user 'bob' has been reset to 0.",
+  "user": {
+    "id": 2,
+    "username": "bob",
+    "is_active": true,
+    "max_traffic_gb": 100,
+    "used_traffic_bytes": 0,
+    "expire_date": "2026-10-17 22:30:00",
+    "max_devices": 3,
+    "note": "Office User",
+    "portal_url": "{{ portal_base_url }}/sub?u=bob"
+  }
+}</code></pre>
                 </div>
             </section>
 

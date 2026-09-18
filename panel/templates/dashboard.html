@@ -598,9 +598,15 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
-                        <button type="submit" class="btn btn-primary" id="btnEditSubmit">Save Changes</button>
+                    <div class="modal-footer" style="justify-content: space-between;">
+                        <button type="button" class="btn btn-outline-warning" id="btnResetUserTraffic" onclick="confirmResetTraffic()" style="display: inline-flex; align-items: center; gap: 0.4rem;" title="Reset consumed traffic to 0">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
+                            Reset Traffic
+                        </button>
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="btnEditSubmit">Save Changes</button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -920,6 +926,37 @@
                 'Delete User',
                 () => {
                     window.location.href = `${BASE_PATH}/user/delete/${userId}`;
+                }
+            );
+        }
+
+        function confirmResetTraffic() {
+            if (!currentEditUserId) return;
+            const userSpan = document.getElementById('editModalUsername');
+            const username = userSpan ? userSpan.innerText.trim() : 'this user';
+            openConfirmModal(
+                'Reset Traffic Usage',
+                `Are you sure you want to reset consumed traffic for user <strong>${escapeHtml(username)}</strong> to <strong>0 GB</strong>?<br><span style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px; display: inline-block;">All past data usage will be cleared. This action cannot be undone.</span>`,
+                'Reset Traffic',
+                async () => {
+                    try {
+                        const resp = await fetch(`${BASE_PATH}/user/reset-traffic/${currentEditUserId}`, {
+                            method: 'POST',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+                        const data = await resp.json();
+                        if (data && data.success) {
+                            showToast(data.message || `Traffic usage for ${username} has been reset to 0.`, 'success');
+                            closeEditModal();
+                            fetchUsers(false);
+                        } else {
+                            showToast((data && data.error) ? data.error : 'Failed to reset traffic.', 'danger');
+                        }
+                    } catch (err) {
+                        showToast('Error resetting traffic: ' + err.message, 'danger');
+                    }
                 }
             );
         }
