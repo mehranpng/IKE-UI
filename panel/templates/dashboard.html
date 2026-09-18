@@ -547,6 +547,19 @@
                             </div>
                         </div>
 
+                        <div class="reset-traffic-card">
+                            <div class="reset-traffic-info">
+                                <div class="reset-traffic-title">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
+                                    <span>Reset Traffic Usage</span>
+                                </div>
+                                <span class="reset-traffic-subtitle">Clear all consumed data back to 0 GB</span>
+                            </div>
+                            <button type="button" class="btn-reset-traffic-action" id="btnResetUserTraffic" onclick="confirmResetTraffic()" title="Reset consumed data back to 0 GB">
+                                Reset Usage
+                            </button>
+                        </div>
+
                         <div class="form-row">
                             <div class="form-group col">
                                 <label>Data Limit (GB)</label>
@@ -598,15 +611,9 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer" style="justify-content: space-between;">
-                        <button type="button" class="btn btn-outline-warning" id="btnResetUserTraffic" onclick="confirmResetTraffic()" style="display: inline-flex; align-items: center; gap: 0.4rem;" title="Reset consumed traffic to 0">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
-                            Reset Traffic
-                        </button>
-                        <div style="display: flex; gap: 0.75rem;">
-                            <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
-                            <button type="submit" class="btn btn-primary" id="btnEditSubmit">Save Changes</button>
-                        </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="btnEditSubmit">Save Changes</button>
                     </div>
                 </form>
             </div>

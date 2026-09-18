@@ -736,6 +736,78 @@ body.modal-open {
     background-color: #ffffff;
 }
 
+.reset-traffic-card {
+    background: #10121d;
+    border: var(--border-width) solid var(--border-dark);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 1rem;
+    box-shadow: var(--shadow-xs);
+    margin-bottom: 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.reset-traffic-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.reset-traffic-title {
+    font-family: var(--font-heading);
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.reset-traffic-title svg {
+    color: var(--warning);
+    flex-shrink: 0;
+}
+
+.reset-traffic-subtitle {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.3;
+}
+
+.btn-reset-traffic-action {
+    background: rgba(255, 183, 3, 0.1);
+    color: var(--warning);
+    border: 1px solid rgba(255, 183, 3, 0.35);
+    border-radius: var(--radius-sm);
+    padding: 0.38rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: var(--font-heading);
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.btn-reset-traffic-action:hover {
+    background: var(--warning);
+    color: #000000;
+    border-color: var(--warning);
+    transform: translate(-1px, -1px);
+    box-shadow: var(--shadow-xs);
+}
+
+.btn-reset-traffic-action:active {
+    transform: translate(1px, 1px);
+    box-shadow: none;
+}
+
 .switch-toggle {
     position: relative;
     display: inline-flex;
