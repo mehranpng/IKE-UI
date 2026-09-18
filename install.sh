@@ -248,9 +248,9 @@ show_banner() {
             APP_VERSION="$disk_ver"
         fi
     fi
-    if [ -t 1 ] && command -v python3 >/dev/null 2>&1; then
+    if command -v python3 >/dev/null 2>&1; then
         python3 - "$cur_ver" << 'PY_EOF'
-import math, sys, time
+import math, sys
 
 cur_ver = sys.argv[1] if len(sys.argv) > 1 else ""
 
@@ -281,42 +281,24 @@ def smoothstep(x):
     x = max(0.0, min(1.0, x))
     return x * x * (3.0 - 2.0 * x)
 
-def render(t):
-    speed = 0.82
-    lines = []
-    for y, line in enumerate(BANNER_LOGO):
-        chars = []
-        for x, char in enumerate(line):
-            if char == " ":
-                line_chars = " "
-                chars.append(line_chars)
-                continue
-            u = x * 0.11
-            v = y * 0.32
-            fb = math.sin(u * 0.95 + math.cos(v * 1.15 + t * (speed * 0.85)) * 0.85 - t * speed) * 0.5 + 0.5
-            fg = math.cos(u * 0.80 - math.sin(v * 0.95 - t * (speed * 0.70)) * 0.75 + t * (speed * 0.90)) * 0.5 + 0.5
-            base = lerp(COLOR_VIOLET, COLOR_ROSE, smoothstep(fb))
-            col = lerp(base, COLOR_LIGHT_PINK, smoothstep(fg) * 0.88)
-            chars.append(f"\033[1;38;2;{col[0]};{col[1]};{col[2]}m{char}")
-        lines.append("".join(chars) + "\033[0m")
-    for sub in SUBTITLES:
-        lines.append(f"\033[38;2;{COLOR_SUB[0]};{COLOR_SUB[1]};{COLOR_SUB[2]}m{sub}\033[0m")
-    return "\n".join(lines)
-
-sys.stdout.write("\033[?25l")
-try:
-    for f in range(20):
-        t = f * 0.04
-        frame = render(t)
-        if f == 0:
-            sys.stdout.write(frame + "\n")
-        else:
-            sys.stdout.write("\033[8A" + frame + "\n")
-        sys.stdout.flush()
-        time.sleep(0.038)
-finally:
-    sys.stdout.write("\033[?25h\033[0m")
-    sys.stdout.flush()
+lines = []
+for y, line in enumerate(BANNER_LOGO):
+    chars = []
+    for x, char in enumerate(line):
+        if char == " ":
+            chars.append(" ")
+            continue
+        u = x * 0.11
+        v = y * 0.32
+        fb = math.sin(u * 0.95 + math.cos(v * 1.15) * 0.85) * 0.5 + 0.5
+        fg = math.cos(u * 0.80 - math.sin(v * 0.95) * 0.75) * 0.5 + 0.5
+        base = lerp(COLOR_VIOLET, COLOR_ROSE, smoothstep(fb))
+        col = lerp(base, COLOR_LIGHT_PINK, smoothstep(fg) * 0.88)
+        chars.append(f"\033[1;38;2;{col[0]};{col[1]};{col[2]}m{char}")
+    lines.append("".join(chars) + "\033[0m")
+for sub in SUBTITLES:
+    lines.append(f"\033[38;2;{COLOR_SUB[0]};{COLOR_SUB[1]};{COLOR_SUB[2]}m{sub}\033[0m")
+sys.stdout.write("\n".join(lines) + "\n")
 PY_EOF
     else
         echo -e "${PURPLE}${BOLD}"
@@ -442,7 +424,10 @@ bootstrap_environment() {
         echo -e "${CYAN}[*] Setting up IKE-UI in ${INSTALL_DIR}...${NC}"
         mkdir -p "$(dirname "$INSTALL_DIR")"
 
-        if [ -d "$INSTALL_DIR/.git" ]; then
+        if [ -f "$CURRENT_DIR/install.sh" ]; then
+            mkdir -p "$INSTALL_DIR"
+            cp -a "$CURRENT_DIR"/. "$INSTALL_DIR"/ 2>/dev/null || cp -rf "$CURRENT_DIR"/* "$INSTALL_DIR"/ 2>/dev/null || true
+        elif [ -d "$INSTALL_DIR/.git" ]; then
             cd "$INSTALL_DIR"
             git remote set-url origin "$REPO_URL" 2>/dev/null || true
             git fetch --all --tags --prune --force
@@ -460,7 +445,9 @@ bootstrap_environment() {
         echo -e "${GREEN}[+] Initialization complete.${NC}"
         echo ""
 
-        if [ "$is_first_install" -eq 1 ] && [ -z "$1" ]; then
+        if [ -f "$CURRENT_DIR/install.sh" ]; then
+            exec "${INSTALL_DIR}/install.sh" "$@"
+        elif [ "$is_first_install" -eq 1 ] && [ -z "$1" ]; then
             exec "${INSTALL_DIR}/install.sh" --first-install
         else
             exec "${INSTALL_DIR}/install.sh" "$@"
@@ -1761,23 +1748,233 @@ show_help() {
     echo ""
 }
 
+run_animated_menu() {
+    local cur_ver="$APP_VERSION"
+    if [ -f "${INSTALL_DIR}/install.sh" ]; then
+        local disk_ver
+        disk_ver=$(grep -oP '^APP_VERSION=["\x27]?\K[^"\x27\s]+' "${INSTALL_DIR}/install.sh" 2>/dev/null || true)
+        if [ -n "$disk_ver" ]; then
+            cur_ver="$disk_ver"
+            APP_VERSION="$disk_ver"
+        fi
+    fi
+
+    local panel_domain
+    panel_domain=$(get_current_domain)
+    local panel_port
+    panel_port=$(get_current_port)
+    local panel_path
+    panel_path=$(get_current_path)
+    local status_badge="Online"
+    if ! systemctl is-active --quiet ike-ui 2>/dev/null && ! systemctl is-active --quiet ikev2-panel 2>/dev/null; then
+        status_badge="Stopped"
+    fi
+
+    python3 - "$cur_ver" "$panel_domain" "$panel_port" "$panel_path" "$status_badge" << 'PY_EOF'
+import sys, time, math, select, termios, tty, shutil
+
+try:
+    tty_in = open('/dev/tty', 'r')
+    tty_out = open('/dev/tty', 'w')
+except Exception:
+    sys.exit(1)
+
+cur_ver = sys.argv[1] if len(sys.argv) > 1 else ""
+domain = sys.argv[2] if len(sys.argv) > 2 else ""
+port = sys.argv[3] if len(sys.argv) > 3 else ""
+path = sys.argv[4] if len(sys.argv) > 4 else ""
+status = sys.argv[5] if len(sys.argv) > 5 else "Online"
+
+BANNER_LOGO = [
+    "  ██╗██╗  ██╗███████╗      ██╗   ██╗██╗",
+    "  ██║██║ ██╔╝██╔════╝      ██║   ██║██║",
+    "  ██║█████╔╝ █████╗  █████╗██║   ██║██║",
+    "  ██║██╔═██╗ ██╔══╝  ╚════╝██║   ██║██║",
+    "  ██║██║  ██╗███████╗      ╚██████╔╝██║",
+    "  ╚═╝╚═╝  ╚═╝╚══════╝       ╚═════╝ ╚═╝",
+]
+
+COLOR_VIOLET     = (165, 60, 150)
+COLOR_ROSE       = (235, 65, 140)
+COLOR_LIGHT_PINK = (255, 175, 215)
+COLOR_SUB        = (250, 140, 190)
+
+def lerp(c1, c2, factor):
+    f = max(0.0, min(1.0, factor))
+    return int(c1[0] + (c2[0] - c1[0]) * f), int(c1[1] + (c2[1] - c1[1]) * f), int(c1[2] + (c2[2] - c1[2]) * f)
+
+def smoothstep(x):
+    x = max(0.0, min(1.0, x))
+    return x * x * (3.0 - 2.0 * x)
+
+def render_logo(t):
+    speed = 0.82
+    lines = []
+    for y, line in enumerate(BANNER_LOGO):
+        chars = []
+        for x, char in enumerate(line):
+            if char == " ":
+                chars.append(" ")
+                continue
+            u = x * 0.11
+            v = y * 0.32
+            fb = math.sin(u * 0.95 + math.cos(v * 1.15 + t * (speed * 0.85)) * 0.85 - t * speed) * 0.5 + 0.5
+            fg = math.cos(u * 0.80 - math.sin(v * 0.95 - t * (speed * 0.70)) * 0.75 + t * (speed * 0.90)) * 0.5 + 0.5
+            base = lerp(COLOR_VIOLET, COLOR_ROSE, smoothstep(fb))
+            col = lerp(base, COLOR_LIGHT_PINK, smoothstep(fg) * 0.88)
+            chars.append(f"\033[1;38;2;{col[0]};{col[1]};{col[2]}m{char}")
+        lines.append("".join(chars) + "\033[0m")
+    return lines
+
+def build_frame(t, buf):
+    cols, rows = shutil.get_terminal_size((80, 24))
+    lines = render_logo(t)
+    lines.append(f"\033[38;2;{COLOR_SUB[0]};{COLOR_SUB[1]};{COLOR_SUB[2]}m        IKE-UI Manager v{cur_ver}\033[0m")
+    lines.append(f"\033[38;2;{COLOR_SUB[0]};{COLOR_SUB[1]};{COLOR_SUB[2]}m   https://github.com/mehranpng/IKE-UI\033[0m")
+    lines.append("\033[36m====================================================\033[0m")
+    if domain:
+        port_disp = f":{port}" if port and port != "443" else ""
+        path_disp = "/" + path.lstrip("/") if path and path != "/" else ""
+        st_badge = "\033[32m● Online\033[0m" if status == "Online" else "\033[31m○ Stopped\033[0m"
+        lines.append(f" \033[1mPanel URL:\033[0m \033[36mhttps://{domain}{port_disp}{path_disp}\033[0m [{st_badge}]")
+        lines.append("\033[36m====================================================\033[0m")
+
+    if rows < 25:
+        lines.append("\033[1mSelect an action:\033[0m")
+        lines.append("  \033[36m1)\033[0m Install/Reinstall   \033[36m6)\033[0m Status & VPN")
+        lines.append("  \033[36m2)\033[0m Update IKE-UI        \033[36m7)\033[0m View Live Logs")
+        lines.append("  \033[36m3)\033[0m Restart Services     \033[36m8)\033[0m Admin & Settings")
+        lines.append("  \033[36m4)\033[0m Stop Services        \033[36m9)\033[0m Domain & SSL")
+        lines.append("  \033[36m5)\033[0m Start Services      \033[36m10)\033[0m Uninstall")
+        lines.append("  \033[36m0)\033[0m Exit")
+    else:
+        lines.append("\033[1mSelect an action:\033[0m")
+        lines.append("  \033[36m1)\033[0m  Install Panel / Reinstall")
+        lines.append("  \033[36m2)\033[0m  Update IKE-UI")
+        lines.append("  \033[36m3)\033[0m  Restart All Services (StrongSwan, Panel, Nginx)")
+        lines.append("  \033[36m4)\033[0m  Stop All Services")
+        lines.append("  \033[36m5)\033[0m  Start All Services")
+        lines.append("  \033[36m6)\033[0m  Check Status & Active VPN Connections")
+        lines.append("  \033[36m7)\033[0m  View Live Logs")
+        lines.append("  \033[36m8)\033[0m  Panel Access & Admin Settings")
+        lines.append("  \033[36m9)\033[0m  Domain & SSL Management")
+        lines.append("  \033[36m10)\033[0m Uninstall IKE-UI")
+        lines.append("  \033[36m0)\033[0m  Exit")
+
+    prompt = f"Enter your choice [0-10]: {buf}"
+    return "\033[?25l\033[H" + "\n".join(lines) + "\n" + prompt + "\033[K\033[J\033[?25h"
+
+buf = ""
+start_time = time.time()
+
+old_settings = None
+try:
+    old_settings = termios.tcgetattr(tty_in)
+    tty.setcbreak(tty_in.fileno())
+except Exception:
+    pass
+
+try:
+    tty_out.write("\033[2J\033[H")
+    tty_out.flush()
+except Exception:
+    pass
+
+try:
+    while True:
+        t = time.time() - start_time
+        frame = build_frame(t, buf)
+        try:
+            tty_out.write(frame)
+            tty_out.flush()
+        except Exception:
+            break
+
+        try:
+            r, _, _ = select.select([tty_in], [], [], 0.035)
+        except Exception:
+            break
+
+        if r:
+            try:
+                ch = tty_in.read(1)
+            except Exception:
+                break
+            if not ch:
+                break
+            if ch == '\x1b':
+                while True:
+                    try:
+                        if select.select([tty_in], [], [], 0.005)[0]:
+                            tty_in.read(1)
+                        else:
+                            break
+                    except Exception:
+                        break
+                continue
+            elif ch in ('\r', '\n'):
+                if buf:
+                    break
+            elif ch in ('\x03', 'q', 'Q'):
+                buf = "0"
+                break
+            elif ch in ('\x7f', '\x08', '\b'):
+                if len(buf) > 0:
+                    buf = buf[:-1]
+            elif ch.isdigit():
+                if len(buf) == 0:
+                    buf += ch
+                elif len(buf) == 1 and buf == '1' and ch == '0':
+                    buf += ch
+                else:
+                    buf = ch
+except KeyboardInterrupt:
+    buf = "0"
+finally:
+    if old_settings and tty_in:
+        try:
+            termios.tcsetattr(tty_in, termios.TCSADRAIN, old_settings)
+        except Exception:
+            pass
+    if tty_out:
+        try:
+            tty_out.write("\033[?25h\n")
+            tty_out.flush()
+        except Exception:
+            pass
+
+sys.stdout.write(buf if buf else "0")
+sys.stdout.flush()
+PY_EOF
+}
+
 menu() {
     while true; do
-        show_banner
-        echo -e "${BOLD}Select an action:${NC}"
-        echo -e "  ${CYAN}1)${NC}  Install Panel / Reinstall"
-        echo -e "  ${CYAN}2)${NC}  Update IKE-UI"
-        echo -e "  ${CYAN}3)${NC}  Restart All Services (StrongSwan, Panel, Nginx)"
-        echo -e "  ${CYAN}4)${NC}  Stop All Services"
-        echo -e "  ${CYAN}5)${NC}  Start All Services"
-        echo -e "  ${CYAN}6)${NC}  Check Status & Active VPN Connections"
-        echo -e "  ${CYAN}7)${NC}  View Live Logs"
-        echo -e "  ${CYAN}8)${NC}  Panel Access & Admin Settings"
-        echo -e "  ${CYAN}9)${NC}  Domain & SSL Management"
-        echo -e "  ${CYAN}10)${NC} Uninstall IKE-UI"
-        echo -e "  ${CYAN}0)${NC}  Exit"
-        echo ""
-        read -rp "Enter your choice [0-10]: " choice
+        local choice=""
+        if [ -t 1 ] && [ -r /dev/tty ] && [ -w /dev/tty ] && command -v python3 >/dev/null 2>&1; then
+            choice=$(run_animated_menu 2>/dev/null)
+            local ret=$?
+            if [ $ret -ne 0 ]; then
+                choice=""
+            fi
+        fi
+        if [ -z "$choice" ]; then
+            show_banner
+            echo -e "${BOLD}Select an action:${NC}"
+            echo -e "  ${CYAN}1)${NC}  Install Panel / Reinstall"
+            echo -e "  ${CYAN}2)${NC}  Update IKE-UI"
+            echo -e "  ${CYAN}3)${NC}  Restart All Services (StrongSwan, Panel, Nginx)"
+            echo -e "  ${CYAN}4)${NC}  Stop All Services"
+            echo -e "  ${CYAN}5)${NC}  Start All Services"
+            echo -e "  ${CYAN}6)${NC}  Check Status & Active VPN Connections"
+            echo -e "  ${CYAN}7)${NC}  View Live Logs"
+            echo -e "  ${CYAN}8)${NC}  Panel Access & Admin Settings"
+            echo -e "  ${CYAN}9)${NC}  Domain & SSL Management"
+            echo -e "  ${CYAN}10)${NC} Uninstall IKE-UI"
+            echo -e "  ${CYAN}0)${NC}  Exit"
+            echo ""
+            read -rp "Enter your choice [0-10]: " choice
+        fi
         case $choice in
             1)
                 install_all
@@ -1868,15 +2065,11 @@ case "$1" in
     uninstall|--uninstall)
         uninstall_all
         ;;
+    menu|--menu)
+        menu
+        ;;
     "")
-        if ! is_installed; then
-            install_all
-            echo ""
-            read -rp "Press Enter to continue..."
-            menu
-        else
-            menu
-        fi
+        menu
         ;;
     *)
         echo -e "${RED}Unknown command: $1${NC}"
