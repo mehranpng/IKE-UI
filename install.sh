@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.8.9"
+APP_VERSION="1.8.10"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"
@@ -169,6 +169,7 @@ NGINX_EOF
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_set_header X-Forwarded-Port \$server_port;
         proxy_set_header X-Forwarded-Prefix /${path};
+        proxy_set_header CF-Connecting-IP "";
 
         proxy_buffering off;
         proxy_cache off;
@@ -186,6 +187,7 @@ NGINX_EOF
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_set_header X-Forwarded-Port \$server_port;
         proxy_set_header X-Forwarded-Prefix "";
+        proxy_set_header CF-Connecting-IP "";
 
         proxy_buffering off;
         proxy_cache off;
@@ -203,6 +205,7 @@ NGINX_EOF
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_set_header X-Forwarded-Port \$server_port;
         proxy_set_header X-Forwarded-Prefix "";
+        proxy_set_header CF-Connecting-IP "";
     }
 
     location / {
@@ -221,6 +224,7 @@ NGINX_EOF
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_set_header X-Forwarded-Port \$server_port;
         proxy_set_header X-Forwarded-Prefix "";
+        proxy_set_header CF-Connecting-IP "";
 
         proxy_buffering off;
         proxy_cache off;
@@ -550,6 +554,16 @@ apply_firewall() {
     detect_network
     iptables -t nat -C POSTROUTING -s 10.10.10.0/24 -o "$NET_IFACE" -j MASQUERADE 2>/dev/null || \
         iptables -t nat -A POSTROUTING -s 10.10.10.0/24 -o "$NET_IFACE" -j MASQUERADE
+
+    # Drop traffic to cloud instance metadata service (IMDS)
+    iptables -C FORWARD -s 10.10.10.0/24 -d 169.254.169.254/32 -j DROP 2>/dev/null || \
+        iptables -I FORWARD 1 -s 10.10.10.0/24 -d 169.254.169.254/32 -j DROP
+    iptables -C INPUT -s 10.10.10.0/24 -d 169.254.169.254/32 -j DROP 2>/dev/null || \
+        iptables -I INPUT 1 -s 10.10.10.0/24 -d 169.254.169.254/32 -j DROP
+
+    # Client-to-client isolation within the VPN subnet
+    iptables -C FORWARD -s 10.10.10.0/24 -d 10.10.10.0/24 -j DROP 2>/dev/null || \
+        iptables -I FORWARD 1 -s 10.10.10.0/24 -d 10.10.10.0/24 -j DROP
 
     iptables -C FORWARD -s 10.10.10.0/24 -j ACCEPT 2>/dev/null || \
         iptables -A FORWARD -s 10.10.10.0/24 -j ACCEPT
@@ -936,6 +950,10 @@ ExecStart=${INSTALL_DIR}/venv/bin/gunicorn --workers 2 --threads 8 --worker-clas
 Restart=always
 RestartSec=3
 TimeoutStopSec=5s
+PrivateTmp=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
 
 [Install]
 WantedBy=multi-user.target
@@ -1024,8 +1042,7 @@ update_ike_ui() {
         git fetch --all --tags --prune --force
     else
         echo -e "${YELLOW}[*] Initializing Git repository in ${INSTALL_DIR}...${NC}"
-        TEMP_CLONE="/tmp/ike-ui-update-temp"
-        rm -rf "$TEMP_CLONE"
+        TEMP_CLONE=$(mktemp -d /tmp/ike-ui-clone.XXXXXX)
         git clone "$REPO_URL" "$TEMP_CLONE"
         cp -r "$TEMP_CLONE/.git" "$INSTALL_DIR/"
         rm -rf "$TEMP_CLONE"
@@ -1224,6 +1241,8 @@ RENEW_EOF
         fi
     fi
 
+    apply_firewall >/dev/null 2>&1 || true
+
     if [ -f "${DB_PATH}" ] && [ -n "$cur_port" ]; then
         sqlite3 "${DB_PATH}" "INSERT INTO system_config (key, value) VALUES ('panel_port', '${cur_port}') ON CONFLICT(key) DO UPDATE SET value = excluded.value;" 2>/dev/null || \
         python3 -c "import sqlite3; conn=sqlite3.connect('${DB_PATH}'); cursor=conn.cursor(); cursor.execute(\"INSERT INTO system_config (key, value) VALUES ('panel_port', '${cur_port}') ON CONFLICT(key) DO UPDATE SET value = excluded.value\"); conn.commit(); conn.close()" 2>/dev/null || true
@@ -1240,6 +1259,9 @@ RENEW_EOF
         sed -i 's|gunicorn .* app:app|gunicorn --workers 2 --threads 8 --worker-class gthread --worker-connections 1000 --timeout 30 --graceful-timeout 2 -b 127.0.0.1:8000 app:app|g' /etc/systemd/system/ike-ui.service
         if ! grep -q "TimeoutStopSec=" /etc/systemd/system/ike-ui.service; then
             sed -i '/RestartSec=/a TimeoutStopSec=5s' /etc/systemd/system/ike-ui.service
+        fi
+        if ! grep -q "PrivateTmp=" /etc/systemd/system/ike-ui.service; then
+            sed -i '/TimeoutStopSec=/a PrivateTmp=true\nProtectKernelModules=true\nProtectKernelTunables=true\nProtectControlGroups=true' /etc/systemd/system/ike-ui.service
         fi
     fi
     systemctl daemon-reload

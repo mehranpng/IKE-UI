@@ -881,6 +881,7 @@
                 <button class="btn-close" onclick="closeSubChangePasswordModal()">&times;</button>
             </div>
             <form id="changePasswordForm" novalidate onsubmit="return handleSubChangePassword(event)">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <div class="modal-body">
                     <div id="changePwdAlertBox"></div>
 

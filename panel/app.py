@@ -64,7 +64,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.8.9"
+APP_VERSION = "1.8.10"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
@@ -91,12 +91,13 @@ app.config["SESSION_COOKIE_SECURE"] = True
 
 def get_client_ip():
     if has_request_context():
-        cf_ip = request.headers.get("CF-Connecting-IP")
-        if cf_ip:
-            return cf_ip.strip().split(",")[0].strip()
+        # Prefer X-Real-IP set by trusted local reverse proxy (Nginx $remote_addr)
         x_real_ip = request.headers.get("X-Real-IP")
         if x_real_ip:
             return x_real_ip.strip().split(",")[0].strip()
+        cf_ip = request.headers.get("CF-Connecting-IP")
+        if cf_ip:
+            return cf_ip.strip().split(",")[0].strip()
     return get_remote_address()
 
 limiter = Limiter(
@@ -1174,7 +1175,9 @@ daemon_lock_handle = None
 
 def start_accounting_daemon():
     global daemon_lock_handle
-    lock_file = "/tmp/ike_accounting_daemon.lock"
+    lock_dir = os.path.dirname(os.path.abspath(DB_PATH))
+    os.makedirs(lock_dir, exist_ok=True)
+    lock_file = os.path.join(lock_dir, "ike_accounting_daemon.lock")
     try:
         daemon_lock_handle = open(lock_file, "w")
         fcntl.flock(daemon_lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -1249,6 +1252,7 @@ def clear_sub_session():
     session.pop("sub_user_id", None)
     session.pop("sub_username", None)
     session.pop("sub_password", None)
+    session.pop("sub_auth_hash", None)
     session.pop("sub_login_time", None)
 
 def sub_login_required(f):
@@ -1257,11 +1261,17 @@ def sub_login_required(f):
         is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json or request.accept_mimetypes.best == "application/json"
         sub_id = session.get("sub_user_id")
         sub_user = session.get("sub_username")
-        sub_pass = session.get("sub_password")
         sub_logged = session.get("sub_logged_in")
         sub_login_time = session.get("sub_login_time")
+        sub_auth_hash = session.get("sub_auth_hash")
 
-        if not sub_logged or not sub_id or not sub_user or not sub_pass:
+        # Migrate legacy session containing sub_password to sub_auth_hash seamlessly
+        if not sub_auth_hash and session.get("sub_password"):
+            sub_auth_hash = hashlib.sha256(str(session.get("sub_password")).encode("utf-8")).hexdigest()
+            session["sub_auth_hash"] = sub_auth_hash
+            session.pop("sub_password", None)
+
+        if not sub_logged or not sub_id or not sub_user or not sub_auth_hash:
             clear_sub_session()
             if is_ajax:
                 return jsonify({"success": False, "error": "Unauthorized or session expired", "redirect": url_for("sub_portal")}), 401
@@ -1282,7 +1292,8 @@ def sub_login_required(f):
             user_db = cursor.fetchone()
             conn.close()
 
-            if not user_db or user_db["username"] != sub_user or user_db["password"] != sub_pass:
+            expected_hash = hashlib.sha256(str(user_db["password"]).encode("utf-8")).hexdigest() if user_db else ""
+            if not user_db or user_db["username"] != sub_user or not hmac.compare_digest(expected_hash, sub_auth_hash):
                 clear_sub_session()
                 if is_ajax:
                     return jsonify({"success": False, "error": "Account credentials were changed. Please log in again.", "redirect": url_for("sub_portal", u=sub_user)}), 401
@@ -1599,15 +1610,22 @@ def sub_portal():
 
     sub_id = session.get("sub_user_id")
     sub_user = session.get("sub_username")
-    sub_pass = session.get("sub_password")
     sub_logged = session.get("sub_logged_in")
     sub_login_time = session.get("sub_login_time")
+    sub_auth_hash = session.get("sub_auth_hash")
+
+    # Migrate legacy session containing sub_password to sub_auth_hash seamlessly
+    if not sub_auth_hash and session.get("sub_password"):
+        sub_auth_hash = hashlib.sha256(str(session.get("sub_password")).encode("utf-8")).hexdigest()
+        session["sub_auth_hash"] = sub_auth_hash
+        session.pop("sub_password", None)
+
     now = int(time.time())
 
     is_valid = False
     user_data = None
 
-    if sub_logged and sub_id and sub_user and sub_pass:
+    if sub_logged and sub_id and sub_user and sub_auth_hash:
         if sub_login_time and (now - int(sub_login_time)) <= SUB_SESSION_LIFETIME:
             try:
                 conn = get_db()
@@ -1615,10 +1633,12 @@ def sub_portal():
                 cursor.execute("SELECT * FROM users WHERE id = ?", (sub_id,))
                 row = cursor.fetchone()
                 conn.close()
-                if row and row["username"] == sub_user and row["password"] == sub_pass:
-                    is_valid = True
-                    online = get_online_users()
-                    user_data = format_user_payload(dict(row), online)
+                if row and row["username"] == sub_user:
+                    expected_hash = hashlib.sha256(str(row["password"]).encode("utf-8")).hexdigest()
+                    if hmac.compare_digest(expected_hash, sub_auth_hash):
+                        is_valid = True
+                        online = get_online_users()
+                        user_data = format_user_payload(dict(row), online)
             except Exception:
                 is_valid = False
 
@@ -1667,7 +1687,8 @@ def sub_login():
             session["sub_logged_in"] = True
             session["sub_user_id"] = user["id"]
             session["sub_username"] = user["username"]
-            session["sub_password"] = user["password"]
+            session["sub_auth_hash"] = hashlib.sha256(str(user["password"]).encode("utf-8")).hexdigest()
+            session.pop("sub_password", None)
             session["sub_login_time"] = int(time.time())
 
             if is_ajax:
@@ -1706,6 +1727,15 @@ def sub_change_password():
         abort(404)
 
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json or request.accept_mimetypes.best == "application/json"
+
+    candidate_csrf = request.form.get("csrf_token") or request.headers.get("X-CSRFToken") or request.headers.get("X-CSRF-Token")
+    session_csrf = session.get("csrf_token")
+    if not session_csrf or not candidate_csrf or not hmac.compare_digest(session_csrf, candidate_csrf):
+        msg = "Invalid or missing CSRF token. Please refresh the page and try again."
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 403
+        flash(msg, "danger")
+        return redirect(url_for("sub_portal"))
     sub_id = session.get("sub_user_id")
     sub_user = session.get("sub_username")
 
@@ -2717,6 +2747,7 @@ server {{
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Port $server_port;
         proxy_set_header X-Forwarded-Prefix /{clean_path};
+        proxy_set_header CF-Connecting-IP "";
 
         proxy_buffering off;
         proxy_cache off;
@@ -2734,6 +2765,7 @@ server {{
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Port $server_port;
         proxy_set_header X-Forwarded-Prefix "";
+        proxy_set_header CF-Connecting-IP "";
 
         proxy_buffering off;
         proxy_cache off;
@@ -2751,6 +2783,7 @@ server {{
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Port $server_port;
         proxy_set_header X-Forwarded-Prefix "";
+        proxy_set_header CF-Connecting-IP "";
     }}
 
     location / {{
@@ -2768,6 +2801,7 @@ server {{
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Port $server_port;
         proxy_set_header X-Forwarded-Prefix "";
+        proxy_set_header CF-Connecting-IP "";
 
         proxy_buffering off;
         proxy_cache off;

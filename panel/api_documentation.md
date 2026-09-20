@@ -56,9 +56,9 @@ Example response:
 ```json
 {
   "success": true,
-  "version": "1.8.8",
+  "version": "1.8.10",
   "stats": {
-    "version": "1.8.8",
+    "version": "1.8.10",
     "total_accounts": 11,
     "active_users": 11,
     "online_users": 6,
