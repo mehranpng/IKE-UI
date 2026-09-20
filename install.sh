@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.8.10"
+APP_VERSION="1.8.11"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"
@@ -951,9 +951,17 @@ Restart=always
 RestartSec=3
 TimeoutStopSec=5s
 PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=${INSTALL_DIR} ${DB_DIR} /etc/ipsec.secrets /etc/nginx/sites-available /etc/nginx/sites-enabled
+NoNewPrivileges=true
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_DAC_OVERRIDE CAP_KILL
 ProtectKernelModules=true
 ProtectKernelTunables=true
 ProtectControlGroups=true
+ProtectKernelLogs=true
+RestrictRealtime=true
+LockPersonality=true
 
 [Install]
 WantedBy=multi-user.target
@@ -1261,7 +1269,10 @@ RENEW_EOF
             sed -i '/RestartSec=/a TimeoutStopSec=5s' /etc/systemd/system/ike-ui.service
         fi
         if ! grep -q "PrivateTmp=" /etc/systemd/system/ike-ui.service; then
-            sed -i '/TimeoutStopSec=/a PrivateTmp=true\nProtectKernelModules=true\nProtectKernelTunables=true\nProtectControlGroups=true' /etc/systemd/system/ike-ui.service
+            sed -i '/TimeoutStopSec=/a PrivateTmp=true' /etc/systemd/system/ike-ui.service
+        fi
+        if ! grep -q "ProtectSystem=" /etc/systemd/system/ike-ui.service; then
+            sed -i '/PrivateTmp=/a ProtectHome=true\nProtectSystem=strict\nReadWritePaths=/opt/ike-ui /etc/strongswan-panel /etc/ipsec.secrets /etc/nginx/sites-available /etc/nginx/sites-enabled\nNoNewPrivileges=true\nCapabilityBoundingSet=CAP_NET_ADMIN CAP_DAC_OVERRIDE CAP_KILL\nProtectKernelModules=true\nProtectKernelTunables=true\nProtectControlGroups=true\nProtectKernelLogs=true\nRestrictRealtime=true\nLockPersonality=true' /etc/systemd/system/ike-ui.service
         fi
     fi
     systemctl daemon-reload

@@ -1432,7 +1432,7 @@
             });
         }
 
-        let currentUsers = {{ users_json | safe }};
+        let currentUsers = {{ (users_formatted if users_formatted is defined else users_json) | tojson }};
         let currentSortColumn = null;
         let currentSortDirection = 'none';
         let currentPage = 1;

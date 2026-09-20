@@ -64,7 +64,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.8.10"
+APP_VERSION = "1.8.11"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
@@ -117,32 +117,32 @@ def verify_admin_csrf():
         return True
 
     csrf_token = session.get("csrf_token")
+    if not csrf_token:
+        return False
+
     candidate = request.headers.get("X-CSRFToken") or request.headers.get("X-CSRF-Token")
     if not candidate:
         candidate = request.form.get("csrf_token")
     if not candidate and request.is_json and isinstance(request.get_json(silent=True), dict):
         candidate = request.get_json(silent=True).get("csrf_token")
 
-    if csrf_token and candidate and hmac.compare_digest(csrf_token, candidate):
-        return True
+    if not candidate or not hmac.compare_digest(csrf_token, candidate):
+        return False
 
-    xrw = request.headers.get("X-Requested-With")
-    if xrw == "XMLHttpRequest":
-        origin = request.headers.get("Origin")
-        referer = request.headers.get("Referer")
-        host = request.host
-        if origin:
-            origin_host = origin.split("://")[-1].rstrip("/")
-            if origin_host == host:
-                return True
-        elif referer:
-            ref_host = referer.split("://")[-1].split("/")[0]
-            if ref_host == host:
-                return True
-        else:
-            return True
+    origin = request.headers.get("Origin")
+    referer = request.headers.get("Referer")
+    host = request.host
 
-    return False
+    if origin:
+        origin_host = origin.split("://")[-1].rstrip("/")
+        if origin_host != host:
+            return False
+    elif referer:
+        ref_host = referer.split("://")[-1].split("/")[0]
+        if ref_host != host:
+            return False
+
+    return True
 
 @app.errorhandler(429)
 @app.errorhandler(RateLimitExceeded)
@@ -676,7 +676,7 @@ def sync_ipsec_secrets():
                 if is_active == 1:
                     clean_pwd = re.sub(r'[\r\n\x00]', '', str(u["password"])).replace('\\', '\\\\').replace('"', '\\"')
                     clean_uname = re.sub(r'[\r\n\x00]', '', str(u["username"])).replace('\\', '\\\\').replace('"', '\\"')
-                    active_lines.append(f'{clean_uname} : EAP "{clean_pwd}"')
+                    active_lines.append(f'"{clean_uname}" : EAP "{clean_pwd}"')
 
             os.makedirs(os.path.dirname(os.path.abspath(SECRETS_PATH)), exist_ok=True)
             temp_secrets = f"{SECRETS_PATH}.tmp"
@@ -1770,7 +1770,7 @@ def sub_change_password():
         flash(msg, "danger")
         return redirect(url_for("sub_portal"))
 
-    if any(c in new_pass for c in ('\r', '\n', '\0')):
+    if any(c in new_pass for c in ('\r', '\n', '\0', '<', '>')):
         msg = "Password contains invalid characters!"
         if is_ajax:
             return jsonify({"success": False, "error": msg}), 400
@@ -1852,10 +1852,12 @@ def dashboard():
 
     sys_metrics = get_system_metrics()
     users_formatted = [format_user_payload(dict(u), online) for u in initial_users]
+    safe_users_json = json.dumps(users_formatted).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
     return render_template("dashboard.html",
                            users=initial_users,
-                           users_json=json.dumps(users_formatted),
+                           users_formatted=users_formatted,
+                           users_json=safe_users_json,
                            online=online,
                            total_users=total_users,
                            active_users=active_users,
@@ -2080,6 +2082,16 @@ def add_user():
         flash(msg, "danger")
         return redirect(url_for("dashboard"))
 
+    if not re.match(r'^[a-zA-Z0-9_@.-]+$', username):
+        msg = "Username can only contain alphanumeric characters, _, -, ., and @."
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("dashboard"))
+
+    if note:
+        note = re.sub(r'[<>]', '', note)[:250].strip()
+
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -2233,7 +2245,8 @@ def edit_user(user_id):
             existing_dev = user["max_devices"] if ("max_devices" in user.keys() and user["max_devices"] is not None) else 10
             max_devices = max(1, min(10, int(existing_dev or 10)))
 
-    note = request.form.get("note", "").strip()
+    raw_note = request.form.get("note", "").strip()
+    note = re.sub(r'[<>]', '', raw_note)[:250].strip()
 
     query = """
         UPDATE users
@@ -2445,8 +2458,11 @@ def api_parse_user_values(data, existing=None):
         raise ValueError("password cannot be empty.")
     if any(c in username for c in ('\r', '\n', '\0')) or any(c in password for c in ('\r', '\n', '\0')):
         raise ValueError("username and password cannot contain newline or null characters.")
+    if not re.match(r'^[a-zA-Z0-9_@.-]+$', username):
+        raise ValueError("username can only contain alphanumeric characters, _, -, ., and @.")
     if len(username) > 128 or len(password) > 256:
         raise ValueError("username or password is too long.")
+    note = re.sub(r'[<>]', '', note)[:250].strip()
     return username, password, traffic, expire_date, note, max_devices
 
 @app.route("/api/v1/users", methods=["GET"])

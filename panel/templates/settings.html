@@ -389,6 +389,7 @@
                 <button class="btn-close" onclick="closeCredentialsModal()">&times;</button>
             </div>
             <form id="changeCredentialsForm" novalidate onsubmit="submitCredentialsChange(event)">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <div class="modal-body">
                     <div class="form-group">
                         <label>Admin Username</label>
@@ -425,6 +426,7 @@
                 <button class="btn-close" onclick="closePathModal()">&times;</button>
             </div>
             <form id="changePathForm" novalidate onsubmit="submitPathChange(event)">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <div class="modal-body">
                     <div class="form-group">
                         <label>Secret Path</label>
@@ -449,6 +451,7 @@
                 <button class="btn-close" onclick="closeSessionTimeoutModal()">&times;</button>
             </div>
             <form id="changeSessionTimeoutForm" novalidate onsubmit="submitSessionTimeoutChange(event)">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <div class="modal-body">
                     <div class="form-group">
                         <label>Expiration Lifetime (Minutes) <span style="color: var(--danger);">*</span></label>
@@ -662,7 +665,11 @@
             try {
                 const response = await fetch(`${BASE_PATH}/settings/create-api-key`, {
                     method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        'X-CSRFToken': CSRF_TOKEN
+                    }
                 });
                 const result = await response.json();
                 if (!response.ok || !result.success) throw new Error(result.error || 'Could not create API key.');
@@ -751,7 +758,8 @@
                     method: 'POST',
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CSRF_TOKEN
                     },
                     body: JSON.stringify({ state: targetState })
                 });
@@ -793,7 +801,8 @@
                     method: 'POST',
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CSRF_TOKEN
                     }
                 });
                 const res = await response.json();
@@ -1034,7 +1043,10 @@
             try {
                 const response = await fetch(`${BASE_PATH}/restore/users/validate`, {
                     method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': CSRF_TOKEN
+                    },
                     body: formData
                 });
                 const res = await response.json();
@@ -1102,11 +1114,15 @@
             const formData = new FormData();
             formData.append('backup_file', selectedRestoreFile);
             formData.append('confirmation', typed);
+            formData.append('csrf_token', CSRF_TOKEN);
 
             try {
                 const response = await fetch(`${BASE_PATH}/restore/users/execute`, {
                     method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': CSRF_TOKEN
+                    },
                     body: formData
                 });
                 const res = await response.json();
@@ -1218,7 +1234,10 @@
             try {
                 const response = await fetch(`${BASE_PATH}/settings/update-credentials`, {
                     method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': CSRF_TOKEN
+                    },
                     body: formData
                 });
                 const res = await response.json();
@@ -1265,7 +1284,10 @@
             try {
                 const response = await fetch(`${BASE_PATH}/settings/update-path`, {
                     method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': CSRF_TOKEN
+                    },
                     body: formData
                 });
                 const res = await response.json();
@@ -1383,7 +1405,10 @@
             try {
                 const response = await fetch(`${BASE_PATH}/settings/update-session-timeout`, {
                     method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': CSRF_TOKEN
+                    },
                     body: formData
                 });
                 const res = await response.json();
