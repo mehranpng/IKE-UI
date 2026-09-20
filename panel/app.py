@@ -64,7 +64,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.8.8"
+APP_VERSION = "1.8.9"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
@@ -87,13 +87,61 @@ app.secret_key = get_persistent_secret_key()
 app.config["PERMANENT_SESSION_LIFETIME"] = datetime.timedelta(minutes=4320)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = True
+
+def get_client_ip():
+    if has_request_context():
+        cf_ip = request.headers.get("CF-Connecting-IP")
+        if cf_ip:
+            return cf_ip.strip().split(",")[0].strip()
+        x_real_ip = request.headers.get("X-Real-IP")
+        if x_real_ip:
+            return x_real_ip.strip().split(",")[0].strip()
+    return get_remote_address()
 
 limiter = Limiter(
-    get_remote_address,
+    get_client_ip,
     app=app,
     default_limits=[],
     storage_uri="memory://"
 )
+
+def get_csrf_token():
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_hex(32)
+    return session["csrf_token"]
+
+def verify_admin_csrf():
+    if request.method in ("GET", "HEAD", "OPTIONS", "TRACE"):
+        return True
+
+    csrf_token = session.get("csrf_token")
+    candidate = request.headers.get("X-CSRFToken") or request.headers.get("X-CSRF-Token")
+    if not candidate:
+        candidate = request.form.get("csrf_token")
+    if not candidate and request.is_json and isinstance(request.get_json(silent=True), dict):
+        candidate = request.get_json(silent=True).get("csrf_token")
+
+    if csrf_token and candidate and hmac.compare_digest(csrf_token, candidate):
+        return True
+
+    xrw = request.headers.get("X-Requested-With")
+    if xrw == "XMLHttpRequest":
+        origin = request.headers.get("Origin")
+        referer = request.headers.get("Referer")
+        host = request.host
+        if origin:
+            origin_host = origin.split("://")[-1].rstrip("/")
+            if origin_host == host:
+                return True
+        elif referer:
+            ref_host = referer.split("://")[-1].split("/")[0]
+            if ref_host == host:
+                return True
+        else:
+            return True
+
+    return False
 
 @app.errorhandler(429)
 @app.errorhandler(RateLimitExceeded)
@@ -148,6 +196,7 @@ def inject_globals():
     except (ValueError, TypeError):
         session_timeout = 4320
     return dict(
+        csrf_token=get_csrf_token(),
         app_version=APP_VERSION,
         current_admin=session.get("admin_user", ""),
         vpn_enabled=(get_system_config("vpn_enabled", "1") == "1"),
@@ -262,12 +311,22 @@ def get_system_metrics():
 get_system_metrics()
 
 def get_db():
-    os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
+    db_dir = os.path.dirname(os.path.abspath(DB_PATH))
+    os.makedirs(db_dir, exist_ok=True)
+    try:
+        os.chmod(db_dir, 0o700)
+    except Exception:
+        pass
     conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA busy_timeout=30000;")
     conn.execute("PRAGMA synchronous=NORMAL;")
+    if os.path.exists(DB_PATH):
+        try:
+            os.chmod(DB_PATH, 0o600)
+        except Exception:
+            pass
     return conn
 
 def get_db_usernames():
@@ -614,9 +673,9 @@ def sync_ipsec_secrets():
                         is_active = 0
 
                 if is_active == 1:
-                    pwd = str(u["password"]).replace('\\', '\\\\').replace('"', '\\"')
-                    uname = str(u["username"]).replace('\\', '\\\\').replace('"', '\\"')
-                    active_lines.append(f'{uname} : EAP "{pwd}"')
+                    clean_pwd = re.sub(r'[\r\n\x00]', '', str(u["password"])).replace('\\', '\\\\').replace('"', '\\"')
+                    clean_uname = re.sub(r'[\r\n\x00]', '', str(u["username"])).replace('\\', '\\\\').replace('"', '\\"')
+                    active_lines.append(f'{clean_uname} : EAP "{clean_pwd}"')
 
             os.makedirs(os.path.dirname(os.path.abspath(SECRETS_PATH)), exist_ok=True)
             temp_secrets = f"{SECRETS_PATH}.tmp"
@@ -1176,7 +1235,11 @@ def login_required(f):
             session.clear()
             if is_ajax:
                 return jsonify({"success": False, "error": "Session validation error", "redirect": url_for("login")}), 401
-            return redirect(url_for("login"))
+        if request.method in ("POST", "PUT", "DELETE", "PATCH") and not verify_admin_csrf():
+            if is_ajax:
+                return jsonify({"success": False, "error": "Invalid or missing CSRF token"}), 403
+            flash("Invalid or missing CSRF token.", "danger")
+            return redirect(url_for("dashboard"))
 
         return f(*args, **kwargs)
     return decorated_function
@@ -1324,7 +1387,7 @@ def get_remaining_days_filter(expire_date_str):
     return calc_remaining_days(expire_date_str)
 
 @app.route("/login", methods=["GET", "POST"])
-@limiter.limit("1/second; 10/minute")
+@limiter.limit("1/second; 20/minute")
 def login():
     if session.get("logged_in") and session.get("admin_user"):
         admin_id = session.get("admin_id")
@@ -1577,7 +1640,7 @@ def sub_portal():
     )
 
 @app.route("/sub/login", methods=["POST"])
-@limiter.limit("1/second; 10/minute")
+@limiter.limit("1/second; 20/minute")
 def sub_login():
     if get_system_config("sub_portal_enabled", "1") != "1":
         abort(404)
@@ -1672,6 +1735,13 @@ def sub_change_password():
 
     if len(new_pass) > 24:
         msg = "Password length cannot exceed 24 characters!"
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
+        return redirect(url_for("sub_portal"))
+
+    if any(c in new_pass for c in ('\r', '\n', '\0')):
+        msg = "Password contains invalid characters!"
         if is_ajax:
             return jsonify({"success": False, "error": msg}), 400
         flash(msg, "danger")
@@ -1882,7 +1952,9 @@ def sse_stream():
         stream_timeout_mins = 4320
 
     def event_generator():
-        while not shutdown_event.is_set():
+        ticks = 0
+        while not shutdown_event.is_set() and ticks < 15:
+            ticks += 1
             try:
                 if not stream_login_time or (int(time.time()) - int(stream_login_time)) >= (stream_timeout_mins * 60):
                     break
@@ -1969,6 +2041,13 @@ def add_user():
         if is_ajax:
             return jsonify({"success": False, "error": "Username and password are required!"}), 400
         flash("Username and password are required!", "danger")
+        return redirect(url_for("dashboard"))
+
+    if any(c in username for c in ('\r', '\n', '\0')) or any(c in password for c in ('\r', '\n', '\0')):
+        msg = "Username and password cannot contain newline or null characters!"
+        if is_ajax:
+            return jsonify({"success": False, "error": msg}), 400
+        flash(msg, "danger")
         return redirect(url_for("dashboard"))
 
     try:
@@ -2058,6 +2137,13 @@ def edit_user(user_id):
     raw_pwd = request.form.get("password", "").strip()
 
     if change_pwd and raw_pwd:
+        if any(c in raw_pwd for c in ('\r', '\n', '\0')):
+            conn.close()
+            msg = "Password cannot contain newline or null characters!"
+            if is_ajax:
+                return jsonify({"success": False, "error": msg}), 400
+            flash(msg, "danger")
+            return redirect(url_for("dashboard"))
         new_password = raw_pwd
         pwd_was_changed = True
     else:
@@ -2159,7 +2245,7 @@ def edit_user(user_id):
     flash(f"User '{user['username']}' updated successfully!", "success")
     return redirect(url_for("dashboard"))
 
-@app.route("/user/toggle/<int:user_id>", methods=["GET", "POST"])
+@app.route("/user/toggle/<int:user_id>", methods=["POST"])
 @login_required
 def toggle_user(user_id):
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.best == "application/json"
@@ -2195,9 +2281,10 @@ def toggle_user(user_id):
         flash("User not found!", "danger")
     return redirect(url_for("dashboard"))
 
-@app.route("/user/delete/<int:user_id>")
+@app.route("/user/delete/<int:user_id>", methods=["POST"])
 @login_required
 def delete_user(user_id):
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.best == "application/json"
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
@@ -2210,9 +2297,19 @@ def delete_user(user_id):
         sync_ipsec_secrets()
         disconnect_user_sas(username)
 
+        if is_ajax:
+            return jsonify({
+                "success": True,
+                "user_id": user_id,
+                "username": username,
+                "message": f"User '{username}' deleted successfully!"
+            })
         flash(f"User '{username}' deleted successfully!", "warning")
     else:
         conn.close()
+        if is_ajax:
+            return jsonify({"success": False, "error": "User not found!"}), 404
+        flash("User not found!", "danger")
     return redirect(url_for("dashboard"))
 
 @app.route("/user/reset-traffic/<int:user_id>", methods=["POST"])
@@ -2264,7 +2361,9 @@ def api_user_payload(user, include_password=False):
     online = get_online_users()
     payload = format_user_payload(dict(user), online)
     payload["portal_url"] = f"{get_public_base_url()}/sub?u={quote(str(user['username']))}"
-    if include_password:
+    if not include_password:
+        payload.pop("password", None)
+    else:
         payload["password"] = user["password"]
     return payload
 
@@ -2314,6 +2413,8 @@ def api_parse_user_values(data, existing=None):
         raise ValueError("username and password are required.")
     if existing and "password" in data and not password:
         raise ValueError("password cannot be empty.")
+    if any(c in username for c in ('\r', '\n', '\0')) or any(c in password for c in ('\r', '\n', '\0')):
+        raise ValueError("username and password cannot contain newline or null characters.")
     if len(username) > 128 or len(password) > 256:
         raise ValueError("username or password is too long.")
     return username, password, traffic, expire_date, note, max_devices
@@ -2562,6 +2663,10 @@ RESERVED_PANEL_PATHS = {
 
 def update_nginx_panel_path(new_path):
     try:
+        conf_path = "/etc/nginx/sites-available/ike-ui"
+        if not os.path.exists(os.path.dirname(conf_path)) and os.path.exists("/etc/nginx/sites-enabled"):
+            conf_path = "/etc/nginx/sites-enabled/ike-ui"
+
         domain = get_server_domain()
         port = get_panel_port()
 

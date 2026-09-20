@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>IKE-UI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -320,13 +321,23 @@
                                             </svg>
                                         </button>
 
-                                        <button class="btn-icon btn-edit-user" id="user-edit-btn-{{ u.id }}" onclick="openEditModal('{{ u.id }}', '{{ u.username }}', '{{ u.max_traffic_gb or '' }}', '{{ u.expire_date | get_remaining_days }}', '{{ u.note or '' }}', '{{ u.max_devices or 10 }}')" title="Edit User">
+                                        <button class="btn-icon btn-edit-user" id="user-edit-btn-{{ u.id }}"
+                                            data-id="{{ u.id }}"
+                                            data-username="{{ u.username }}"
+                                            data-max-traffic="{{ u.max_traffic_gb or '' }}"
+                                            data-remaining-days="{{ u.expire_date | get_remaining_days }}"
+                                            data-note="{{ u.note or '' }}"
+                                            data-max-devices="{{ u.max_devices or 10 }}"
+                                            onclick="openEditModal(this)" title="Edit User">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                 <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
                                             </svg>
                                         </button>
 
-                                        <button type="button" class="btn-icon text-danger" onclick="confirmDeleteUser('{{ u.id }}', '{{ u.username }}')" title="Delete User">
+                                        <button type="button" class="btn-icon text-danger"
+                                            data-id="{{ u.id }}"
+                                            data-username="{{ u.username }}"
+                                            onclick="confirmDeleteUser(this.dataset.id, this.dataset.username)" title="Delete User">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                 <polyline points="3 6 5 6 21 6"/>
                                                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -371,6 +382,7 @@
                     <button class="btn-close" onclick="closeAddModal()">&times;</button>
                 </div>
                 <form id="addUserForm" novalidate onsubmit="submitAddUser(event)">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <div class="modal-body">
                         <div class="form-group">
                             <label>Username</label>
@@ -525,6 +537,7 @@
                     <button class="btn-close" onclick="closeEditModal()">&times;</button>
                 </div>
                 <form id="editUserForm" novalidate onsubmit="submitEditUser(event)">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <div class="modal-body">
                         <div class="toggle-card">
                             <div class="toggle-header" onclick="clickToggleHeader()">
@@ -852,6 +865,7 @@
     <script>
         const BASE_PATH = "{{ request.script_root }}";
         const PORTAL_BASE_URL = "{{ portal_base_url }}";
+        const CSRF_TOKEN = "{{ csrf_token }}";
 
         function showToast(message, type = 'error', duration = 3500) {
             const container = document.getElementById('toastContainer');
@@ -929,10 +943,27 @@
         function confirmDeleteUser(userId, username) {
             openConfirmModal(
                 'Delete User',
-                `Are you sure you want to delete user <strong>${username}</strong>?<br><span style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px; display: inline-block;">This action cannot be undone.</span>`,
+                `Are you sure you want to delete user <strong>${escapeHtml(username)}</strong>?<br><span style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px; display: inline-block;">This action cannot be undone.</span>`,
                 'Delete User',
-                () => {
-                    window.location.href = `${BASE_PATH}/user/delete/${userId}`;
+                async () => {
+                    try {
+                        const resp = await fetch(`${BASE_PATH}/user/delete/${userId}`, {
+                            method: 'POST',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRFToken': CSRF_TOKEN
+                            }
+                        });
+                        const data = await resp.json();
+                        if (data && data.success) {
+                            showToast(data.message || `User '${username}' deleted successfully!`, 'warning');
+                            fetchUsers(false);
+                        } else {
+                            showToast((data && data.error) ? data.error : 'Failed to delete user.', 'danger');
+                        }
+                    } catch (err) {
+                        showToast('Error deleting user: ' + err.message, 'danger');
+                    }
                 }
             );
         }
@@ -950,7 +981,8 @@
                         const resp = await fetch(`${BASE_PATH}/user/reset-traffic/${currentEditUserId}`, {
                             method: 'POST',
                             headers: {
-                                'X-Requested-With': 'XMLHttpRequest'
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRFToken': CSRF_TOKEN
                             }
                         });
                         const data = await resp.json();
@@ -1083,19 +1115,28 @@
         }
 
         let currentEditUserId = null;
-        function openEditModal(id, username, maxTraffic, remainingDays, note, maxDevices) {
+        function openEditModal(target, username, maxTraffic, remainingDays, note, maxDevices) {
+            let id = target;
+            if (typeof target === 'object' && target !== null && target.dataset) {
+                id = target.dataset.id;
+                username = target.dataset.username;
+                maxTraffic = target.dataset.maxTraffic;
+                remainingDays = target.dataset.remainingDays;
+                note = target.dataset.note;
+                maxDevices = target.dataset.maxDevices;
+            }
             currentEditUserId = id;
-            document.getElementById('editModalUsername').innerText = username;
+            document.getElementById('editModalUsername').innerText = username || '';
             document.getElementById('toggleChangePassword').checked = false;
             document.getElementById('passwordFieldContainer').style.display = 'none';
             document.getElementById('editPassword').value = '';
             document.getElementById('editMaxTraffic').value = (maxTraffic && parseFloat(maxTraffic) > 0) ? maxTraffic : '';
-            document.getElementById('editDurationDays').value = (remainingDays !== '' && remainingDays !== null) ? remainingDays : '';
+            document.getElementById('editDurationDays').value = (remainingDays !== '' && remainingDays !== null && remainingDays !== undefined) ? remainingDays : '';
             const devInp = document.getElementById('editMaxDevices');
             if (devInp) {
                 devInp.value = (maxDevices && parseInt(maxDevices) > 0) ? Math.max(1, Math.min(10, parseInt(maxDevices))) : 10;
             }
-            document.getElementById('editNote').value = note;
+            document.getElementById('editNote').value = note || '';
             clearAllErrors('#editUserForm');
 
             document.getElementById('editFormView').style.display = 'block';
@@ -1681,12 +1722,22 @@
                                 <line x1="12" y1="8" x2="12.01" y2="8"/>
                             </svg>
                         </button>
-                        <button class="btn-icon btn-edit-user" id="user-edit-btn-${u.id}" onclick="openEditModal('${u.id}', '${escapeHtml(u.username)}', '${u.max_traffic_gb || ''}', '${u.remaining_days !== undefined ? u.remaining_days : ''}', '${escapeHtml(u.note || '')}', '${maxDev}')" title="Edit User">
+                        <button class="btn-icon btn-edit-user" id="user-edit-btn-${u.id}"
+                            data-id="${u.id}"
+                            data-username="${escapeHtml(u.username)}"
+                            data-max-traffic="${u.max_traffic_gb || ''}"
+                            data-remaining-days="${u.remaining_days !== undefined ? u.remaining_days : ''}"
+                            data-note="${escapeHtml(u.note || '')}"
+                            data-max-devices="${maxDev}"
+                            onclick="openEditModal(this)" title="Edit User">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
                             </svg>
                         </button>
-                        <button type="button" class="btn-icon text-danger" onclick="confirmDeleteUser('${u.id}', '${escapeHtml(u.username)}')" title="Delete User">
+                        <button type="button" class="btn-icon text-danger"
+                            data-id="${u.id}"
+                            data-username="${escapeHtml(u.username)}"
+                            onclick="confirmDeleteUser(this.dataset.id, this.dataset.username)" title="Delete User">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="3 6 5 6 21 6"/>
                                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -1947,7 +1998,10 @@
             try {
                 const response = await fetch(`${BASE_PATH}/user/add`, {
                     method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': CSRF_TOKEN
+                    },
                     body: formData
                 });
                 const res = await response.json();
@@ -2022,7 +2076,10 @@
             try {
                 const response = await fetch(`${BASE_PATH}/user/edit/` + currentEditUserId, {
                     method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': CSRF_TOKEN
+                    },
                     body: formData
                 });
                 const res = await response.json();
@@ -2121,6 +2178,7 @@
                     method: 'POST',
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': CSRF_TOKEN,
                         'Content-Type': 'application/json'
                     }
                 });
@@ -2251,9 +2309,26 @@
             };
 
             sseSource.onerror = function() {
+                if (sseSource) {
+                    sseSource.close();
+                    sseSource = null;
+                }
                 setTimeout(initSSE, 3000);
             };
         }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                if (sseSource) {
+                    sseSource.close();
+                    sseSource = null;
+                }
+            } else {
+                if (!sseSource) {
+                    initSSE();
+                }
+            }
+        });
 
         function fetchGitHubStars() {
             const starEl = document.getElementById('ghStarsCount');

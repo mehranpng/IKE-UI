@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.8.8"
+APP_VERSION="1.8.9"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"
@@ -841,6 +841,10 @@ conn ikev2-vpn
 CONF_EOF
 
     mkdir -p "${DB_DIR}"
+    chmod 700 "${DB_DIR}" 2>/dev/null || true
+    if [ -f "${DB_PATH}" ]; then
+        chmod 600 "${DB_PATH}" 2>/dev/null || true
+    fi
     if [ ! -f "${SECRETS_PATH}" ]; then
         cat > "${SECRETS_PATH}" << 'SEC_EOF'
 : RSA privkey.pem
@@ -1168,7 +1172,6 @@ else:
         chmod 600 /etc/ipsec.d/private/privkey.pem 2>/dev/null || true
         chmod 644 /etc/ipsec.d/certs/cert.pem /etc/ipsec.d/cacerts/* 2>/dev/null || true
         ipsec rereadall 2>/dev/null || true
-        ipsec restart 2>/dev/null || systemctl restart strongswan-starter.service 2>/dev/null || systemctl restart strongswan.service 2>/dev/null || true
 
         mkdir -p /etc/letsencrypt/renewal-hooks/deploy
         cat > /etc/letsencrypt/renewal-hooks/deploy/strongswan.sh << 'RENEW_EOF'
@@ -1200,7 +1203,6 @@ else:
         chmod 600 /etc/ipsec.d/private/privkey.pem
         chmod 644 /etc/ipsec.d/certs/cert.pem /etc/ipsec.d/cacerts/* 2>/dev/null || true
         ipsec rereadall 2>/dev/null || true
-        ipsec restart 2>/dev/null || systemctl restart strongswan-starter.service 2>/dev/null || systemctl restart strongswan.service 2>/dev/null || true
         systemctl reload nginx 2>/dev/null || true
         break
     fi
@@ -1225,6 +1227,13 @@ RENEW_EOF
     if [ -f "${DB_PATH}" ] && [ -n "$cur_port" ]; then
         sqlite3 "${DB_PATH}" "INSERT INTO system_config (key, value) VALUES ('panel_port', '${cur_port}') ON CONFLICT(key) DO UPDATE SET value = excluded.value;" 2>/dev/null || \
         python3 -c "import sqlite3; conn=sqlite3.connect('${DB_PATH}'); cursor=conn.cursor(); cursor.execute(\"INSERT INTO system_config (key, value) VALUES ('panel_port', '${cur_port}') ON CONFLICT(key) DO UPDATE SET value = excluded.value\"); conn.commit(); conn.close()" 2>/dev/null || true
+    fi
+
+    if [ -d "${DB_DIR}" ]; then
+        chmod 700 "${DB_DIR}" 2>/dev/null || true
+    fi
+    if [ -f "${DB_PATH}" ]; then
+        chmod 600 "${DB_PATH}" 2>/dev/null || true
     fi
 
     if [ -f /etc/systemd/system/ike-ui.service ]; then

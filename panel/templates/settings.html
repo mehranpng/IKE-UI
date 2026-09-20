@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>IKE-UI - Settings</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -595,6 +596,7 @@
 
     <script>
         const BASE_PATH = "{{ request.script_root }}";
+        const CSRF_TOKEN = "{{ csrf_token }}";
 
         function showToast(message, type = 'error', duration = 3500) {
             const container = document.getElementById('toastContainer');
