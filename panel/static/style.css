@@ -1417,75 +1417,57 @@ body.modal-open {
 
 .api-stats-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.75rem;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
     width: 100%;
     margin-top: 0.25rem;
 }
 
-@media (max-width: 860px) {
-    .api-stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 480px) {
-    .api-stats-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
 .api-stat-item {
     background: #141622;
-    border: 1.5px solid var(--border-subtle);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
-    padding: 0.85rem 1rem;
+    padding: 0.6rem 0.85rem;
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
-    box-shadow: var(--shadow-xs);
-    transition: all 0.15s ease;
-}
-
-.api-stat-item:hover {
-    border-color: var(--primary);
-    background: #181b2a;
-    transform: translateY(-1px);
-}
-
-.api-stat-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    gap: 0.2rem;
+    box-shadow: none;
 }
 
 .api-stat-label {
-    font-size: 0.74rem;
-    font-weight: 700;
+    font-size: 0.72rem;
+    font-weight: 600;
     color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.api-stat-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: var(--radius-full);
+    letter-spacing: 0.03em;
 }
 
 .api-stat-val {
     font-family: var(--font-heading);
-    font-size: 1.45rem;
+    font-size: 1.25rem;
     font-weight: 800;
     color: #ffffff;
     line-height: 1.2;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
 }
 
-.api-stat-sub {
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    font-family: var(--font-mono);
+@media (max-width: 480px) {
+    .api-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.45rem;
+    }
+
+    .api-stat-item {
+        padding: 0.5rem 0.65rem;
+    }
+
+    .api-stat-label {
+        font-size: 0.64rem;
+    }
+
+    .api-stat-val {
+        font-size: 1.05rem;
+    }
 }
 
 .card-header {
@@ -3164,27 +3146,13 @@ input.input-error:focus {
     position: absolute;
     top: -2px;
     right: -2px;
-    width: 9px;
-    height: 9px;
+    width: 8px;
+    height: 8px;
     background-color: #facc15;
     border-radius: 50%;
-    border: 2px solid var(--bg-surface, #1e293b);
-    box-shadow: 0 0 8px rgba(250, 204, 21, 0.9);
+    border: 1.5px solid var(--bg-surface, #1e293b);
+    box-shadow: none;
     pointer-events: none;
-    animation: pulse-update-dot 2s infinite ease-in-out;
-}
-
-@keyframes pulse-update-dot {
-    0%, 100% {
-        transform: scale(1);
-        opacity: 1;
-        box-shadow: 0 0 6px rgba(250, 204, 21, 0.9);
-    }
-    50% {
-        transform: scale(1.3);
-        opacity: 0.85;
-        box-shadow: 0 0 12px rgba(250, 204, 21, 1);
-    }
 }
 
 /* System Updates Card Components */

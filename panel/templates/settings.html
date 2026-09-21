@@ -135,7 +135,7 @@
                             </div>
                         </div>
                         <span id="updateStatusPill" class="status-pill {% if update_available %}status-disabled{% else %}status-active{% endif %}" style="{% if update_available %}background: rgba(234, 179, 8, 0.15); color: #facc15; border-color: rgba(234, 179, 8, 0.35);{% endif %}">
-                            <span class="status-dot" style="{% if update_available %}background-color: #facc15; box-shadow: 0 0 6px #facc15;{% endif %}"></span>
+                            <span class="status-dot" style="{% if update_available %}background-color: #facc15;{% endif %}"></span>
                             <span id="updateStatusPillText">{% if update_available %}Update Ready{% else %}Up to date{% endif %}</span>
                         </span>
                     </div>
@@ -278,7 +278,6 @@
                                         <line x1="6" y1="20" x2="6" y2="14"></line>
                                     </svg>
                                     <span class="settings-row-title">API Request Statistics</span>
-                                    <span class="settings-badge-cyan">Live Usage</span>
                                 </div>
                                 <button type="button" class="btn-preset" id="btnRefreshApiStats" onclick="refreshApiStats(this)" title="Refresh API Statistics" style="display: inline-flex; align-items: center; gap: 5px;">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="refreshApiStatsIcon">
@@ -293,39 +292,23 @@
 
                             <div class="api-stats-grid">
                                 <div class="api-stat-item">
-                                    <div class="api-stat-header">
-                                        <span class="api-stat-label">This Month</span>
-                                        <span class="api-stat-dot" style="background: var(--primary, #7452ff);"></span>
-                                    </div>
+                                    <span class="api-stat-label">This Month</span>
                                     <div class="api-stat-val" id="apiStatCurrentMonth">{{ "{:,}".format(api_stats.current_month) if api_stats else 0 }}</div>
-                                    <div class="api-stat-sub">Current month</div>
                                 </div>
 
                                 <div class="api-stat-item">
-                                    <div class="api-stat-header">
-                                        <span class="api-stat-label">Past 7 Days</span>
-                                        <span class="api-stat-dot" style="background: var(--accent-cyan, #00f0ff);"></span>
-                                    </div>
+                                    <span class="api-stat-label">Past 7 Days</span>
                                     <div class="api-stat-val" id="apiStatPast7Days">{{ "{:,}".format(api_stats.past_7_days) if api_stats else 0 }}</div>
-                                    <div class="api-stat-sub">Last 7 days</div>
                                 </div>
 
                                 <div class="api-stat-item">
-                                    <div class="api-stat-header">
-                                        <span class="api-stat-label">Today</span>
-                                        <span class="api-stat-dot" style="background: var(--accent-yellow, #ffd000);"></span>
-                                    </div>
+                                    <span class="api-stat-label">Today</span>
                                     <div class="api-stat-val" id="apiStatToday">{{ "{:,}".format(api_stats.today) if api_stats else 0 }}</div>
-                                    <div class="api-stat-sub">Since 00:00</div>
                                 </div>
 
                                 <div class="api-stat-item">
-                                    <div class="api-stat-header">
-                                        <span class="api-stat-label">Past 1 Hour</span>
-                                        <span class="api-stat-dot" style="background: var(--success, #00f59b);"></span>
-                                    </div>
+                                    <span class="api-stat-label">Past 1 Hour</span>
                                     <div class="api-stat-val" id="apiStatPast1Hour">{{ "{:,}".format(api_stats.past_1_hour) if api_stats else 0 }}</div>
-                                    <div class="api-stat-sub">Last 60 mins</div>
                                 </div>
                             </div>
                         </div>
@@ -1849,7 +1832,7 @@
                     const pillDot = pill ? pill.querySelector('.status-dot') : null;
                     if (pillDot) {
                         pillDot.style.backgroundColor = '#facc15';
-                        pillDot.style.boxShadow = '0 0 6px #facc15';
+                        pillDot.style.boxShadow = 'none';
                     }
                     const pillText = document.getElementById('updateStatusPillText');
                     if (pillText) pillText.textContent = 'Update Ready';
