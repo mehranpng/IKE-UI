@@ -15,6 +15,18 @@ It utilizes EAP-MSCHAPv2 authentication, allowing native client connections on i
 
 ---
 
+### Preview
+
+<p align="center">
+  <img src="assets/preview-web.png" alt="IKE-UI Web Panel" />
+</p>
+
+<p align="center">
+  <img src="assets/preview-cli.png" alt="IKE-UI CLI" />
+</p>
+
+---
+
 ### Prerequisites
 
 Before installing, ensure the system meets the following requirements:
