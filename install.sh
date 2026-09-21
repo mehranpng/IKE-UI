@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.8.11"
+APP_VERSION="1.9.0"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"
@@ -1006,8 +1006,31 @@ SERVICE_EOF
     echo ""
 }
 
+is_newer_version() {
+    local cur="${1#v}"
+    local target="${2#v}"
+    if [ "$cur" = "$target" ] || [ -z "$target" ]; then
+        return 1
+    fi
+    local higher
+    higher=$(printf "%s\n%s\n" "$cur" "$target" | sort -V | tail -n 1)
+    if [ "$higher" = "$target" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 update_ike_ui() {
     local target_channel="$1"
+    local auto_confirm=0
+
+    if [[ "$2" == "-y" || "$2" == "--yes" || "$1" == "-y" || "$1" == "--yes" || "$NON_INTERACTIVE" == "1" ]]; then
+        auto_confirm=1
+    fi
+    if [[ "$target_channel" == "-y" || "$target_channel" == "--yes" ]]; then
+        target_channel="release"
+    fi
 
     show_banner
     echo -e "${CYAN}${BOLD}[*] IKE-UI Update Manager${NC}"
@@ -1083,13 +1106,7 @@ update_ike_ui() {
 
             local has_new_version=0
             if [ -n "$latest_tag" ]; then
-                local head_hash tag_hash
-                head_hash=$(git rev-parse HEAD 2>/dev/null || true)
-                tag_hash=$(git rev-parse "${latest_tag}^{commit}" 2>/dev/null || true)
-
-                if [ "$latest_tag_clean" != "$cur_ver_clean" ]; then
-                    has_new_version=1
-                elif [ -n "$tag_hash" ] && [ "$head_hash" != "$tag_hash" ]; then
+                if is_newer_version "$cur_ver_clean" "$latest_tag_clean"; then
                     has_new_version=1
                 fi
             fi
@@ -1099,16 +1116,20 @@ update_ike_ui() {
                 echo -e "${YELLOW}[*] No new version exists.${NC}"
                 echo -e "    You are already running the latest version: ${GREEN}${BOLD}v${cur_ver_clean}${NC}"
                 echo ""
-                read -rp "Press Enter to return..." _dummy
+                if [ "$auto_confirm" -eq 0 ]; then
+                    read -rp "Press Enter to return..." _dummy
+                fi
                 return 0 2>/dev/null || exit 0
             fi
 
             echo ""
             echo -e "${GREEN}[+] A new version is available: ${BOLD}${latest_tag}${NC} (Current: ${YELLOW}v${cur_ver_clean}${NC})"
-            read -rp "Do you want to update to this version? [y/N]: " confirm_update
-            if [[ ! "$confirm_update" =~ ^[yY]([eE][sS])?$ ]]; then
-                echo -e "${YELLOW}[*] Update cancelled.${NC}"
-                return 0 2>/dev/null || exit 0
+            if [ "$auto_confirm" -eq 0 ]; then
+                read -rp "Do you want to update to this version? [y/N]: " confirm_update
+                if [[ ! "$confirm_update" =~ ^[yY]([eE][sS])?$ ]]; then
+                    echo -e "${YELLOW}[*] Update cancelled.${NC}"
+                    return 0 2>/dev/null || exit 0
+                fi
             fi
 
             echo ""
@@ -1127,17 +1148,21 @@ update_ike_ui() {
                 echo -e "${YELLOW}[*] No new updates exist.${NC}"
                 echo -e "    You are already on the latest commit: ${GREEN}${head_hash:0:7}${NC}"
                 echo ""
-                read -rp "Press Enter to return..." _dummy
+                if [ "$auto_confirm" -eq 0 ]; then
+                    read -rp "Press Enter to return..." _dummy
+                fi
                 return 0 2>/dev/null || exit 0
             fi
 
             echo ""
             echo -e "${GREEN}[+] New updates available on main branch!${NC}"
             echo -e "    Current: ${YELLOW}${head_hash:0:7}${NC} -> Latest: ${GREEN}${origin_hash:0:7}${NC}"
-            read -rp "Do you want to update to this version? [y/N]: " confirm_update
-            if [[ ! "$confirm_update" =~ ^[yY]([eE][sS])?$ ]]; then
-                echo -e "${YELLOW}[*] Update cancelled.${NC}"
-                return 0 2>/dev/null || exit 0
+            if [ "$auto_confirm" -eq 0 ]; then
+                read -rp "Do you want to update to this version? [y/N]: " confirm_update
+                if [[ ! "$confirm_update" =~ ^[yY]([eE][sS])?$ ]]; then
+                    echo -e "${YELLOW}[*] Update cancelled.${NC}"
+                    return 0 2>/dev/null || exit 0
+                fi
             fi
 
             echo ""
@@ -1962,7 +1987,7 @@ case "$1" in
         install_all "$2"
         ;;
     update|-u|--update)
-        update_ike_ui "$2"
+        update_ike_ui "$2" "$3"
         ;;
     restart|-r|--restart)
         restart_services

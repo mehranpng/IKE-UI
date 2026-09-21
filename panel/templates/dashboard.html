@@ -37,11 +37,12 @@
                         <span id="ghStarsCount">--</span>
                     </span>
                 </a>
-                <a href="{{ url_for('settings') }}" class="btn btn-secondary btn-icon" title="Settings" aria-label="Settings">
+                <a href="{{ url_for('settings') }}" class="btn btn-secondary btn-icon settings-nav-btn" title="Settings" aria-label="Settings">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="3"/>
                         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                     </svg>
+                    <span id="settingsUpdateDot" class="settings-update-dot" style="display: {% if update_available %}block{% else %}none{% endif %};" title="Update available: v{{ latest_version }}"></span>
                 </a>
                 <a href="{{ url_for('logout') }}" class="btn btn-outline btn-icon" title="Logout" aria-label="Logout">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2239,6 +2240,16 @@
                         const vpnBadge = document.getElementById('vpnDisabledBadge');
                         if (vpnBadge) {
                             vpnBadge.style.display = data.vpn_enabled ? 'none' : 'inline-flex';
+                        }
+                    }
+
+                    if (typeof data.update_available !== 'undefined') {
+                        const updateDot = document.getElementById('settingsUpdateDot');
+                        if (updateDot) {
+                            updateDot.style.display = data.update_available ? 'block' : 'none';
+                            if (data.latest_version) {
+                                updateDot.title = `Update available: v${data.latest_version}`;
+                            }
                         }
                     }
 

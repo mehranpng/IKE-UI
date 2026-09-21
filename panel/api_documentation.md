@@ -43,6 +43,9 @@ The full `sk-` key is shown only once when an administrator creates it. Store it
 | DELETE | `/users/{id}` | Delete user and disconnect active sessions. |
 | GET | `/backup/users` | Download a users-only SQLite backup file. |
 | POST | `/restore/users` | Restore user accounts from an SQLite database backup file. |
+| GET | `/system/update/check` | Check GitHub for official stable releases. Query: `force`. |
+| POST | `/system/update` | Trigger background update to the latest official stable release. |
+| GET | `/system/update/status` | Get progress, step info, and live execution logs of ongoing update. |
 
 ## Dashboard statistics
 
@@ -56,9 +59,9 @@ Example response:
 ```json
 {
   "success": true,
-  "version": "1.8.11",
+  "version": "1.9.0",
   "stats": {
-    "version": "1.8.11",
+    "version": "1.9.0",
     "total_accounts": 11,
     "active_users": 11,
     "online_users": 6,
@@ -318,6 +321,78 @@ Example response:
   "success": true,
   "message": "Successfully restored 15 users!",
   "restored_count": 15
+}
+```
+
+## System updates
+
+### Check for updates
+
+Checks GitHub for new official stable releases. Uses a 6-hour cache by default to prevent API rate limits. Pass `force=true` or `force=1` to force a real-time check.
+
+```bash
+curl 'https://your-domain.example/api/v1/system/update/check?force=true' \
+  -H 'X-API-Key: sk-your-key'
+```
+
+Example response:
+
+```json
+{
+  "success": true,
+  "cached": false,
+  "current_version": "1.9.0",
+  "latest_version": "1.9.1",
+  "update_available": true,
+  "release_name": "IKE-UI v1.9.1 Release",
+  "release_notes": "Official stable release notes and fixes.",
+  "html_url": "https://github.com/mehranpng/IKE-UI/releases/tag/v1.9.1",
+  "last_checked": 1726930000
+}
+```
+
+### Trigger update
+
+Launches the automated update to the latest official stable release in a detached background worker. Active VPN client connections will NOT be disconnected.
+
+```bash
+curl -X POST 'https://your-domain.example/api/v1/system/update' \
+  -H 'X-API-Key: sk-your-key'
+```
+
+Example response (HTTP 202 Accepted):
+
+```json
+{
+  "success": true,
+  "message": "Stable update process initiated in background.",
+  "current_version": "1.9.0",
+  "target_version": "1.9.1",
+  "status_endpoint": "/api/v1/system/update/status"
+}
+```
+
+### Update status
+
+Polls the progress of an ongoing or recently completed update.
+
+```bash
+curl 'https://your-domain.example/api/v1/system/update/status' \
+  -H 'X-API-Key: sk-your-key'
+```
+
+Example response:
+
+```json
+{
+  "success": true,
+  "status": "running",
+  "step": "dependencies",
+  "progress": 60,
+  "message": "Updating Python dependencies...",
+  "error": null,
+  "timestamp": 1726930045,
+  "log": "..."
 }
 ```
 

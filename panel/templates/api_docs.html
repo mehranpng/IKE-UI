@@ -70,11 +70,14 @@
             <div class="api-doc-nav-group">
                 <div class="api-doc-nav-title">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                    System &amp; Metrics
+                    System &amp; Updates
                 </div>
                 <ul class="api-doc-nav-list">
                     <li><a href="#endpoint-stats" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /stats</a></li>
                     <li><a href="#endpoint-ping" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /ping</a></li>
+                    <li><a href="#endpoint-update-check" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /system/update/check</a></li>
+                    <li><a href="#endpoint-update-trigger" class="api-doc-nav-link"><span class="badge-method badge-method-post" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">POST</span> /system/update</a></li>
+                    <li><a href="#endpoint-update-status" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /system/update/status</a></li>
                 </ul>
             </div>
 
@@ -180,9 +183,9 @@
                     </div>
                     <pre><code>{
   "success": true,
-  "version": "1.8.11",
+  "version": "1.9.0",
   "stats": {
-    "version": "1.8.11",
+    "version": "1.9.0",
     "total_accounts": 12,
     "active_users": 10,
     "online_users": 3,
@@ -235,6 +238,139 @@
   "message": "pong",
   "timestamp": 1726660000,
   "server_time": "2026-09-18 13:42:00"
+}</code></pre>
+                </div>
+            </section>
+
+            <!-- System & Updates: GET /system/update/check -->
+            <section class="api-endpoint-card" id="endpoint-update-check">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-get">GET</span>
+                        <span class="api-endpoint-path">/system/update/check</span>
+                    </div>
+                    <span class="settings-badge-cyan">Check Stable Updates</span>
+                </div>
+                <p>Checks GitHub for new official stable releases. Returns cached data if checked within the last 6 hours unless <code>force=true</code> is supplied.</p>
+
+                <div class="api-param-table-wrap">
+                    <table class="api-param-table">
+                        <thead>
+                            <tr>
+                                <th>Query Parameter</th>
+                                <th>Type</th>
+                                <th>Required</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="api-param-name">force</td>
+                                <td class="api-param-type">boolean</td>
+                                <td><span class="badge-req badge-req-no">Optional</span></td>
+                                <td class="api-param-desc">Pass <code>true</code> or <code>1</code> to bypass the 6-hour cache and query GitHub in real-time.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s '{{ api_base_url }}/system/update/check?force=true' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>Response 200 OK</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>{
+  "success": true,
+  "cached": false,
+  "current_version": "1.9.0",
+  "latest_version": "1.9.1",
+  "update_available": true,
+  "release_name": "IKE-UI v1.9.1 Release",
+  "release_notes": "Official stable release notes and fixes.",
+  "html_url": "https://github.com/mehranpng/IKE-UI/releases/tag/v1.9.1",
+  "last_checked": 1726930000
+}</code></pre>
+                </div>
+            </section>
+
+            <!-- System & Updates: POST /system/update -->
+            <section class="api-endpoint-card" id="endpoint-update-trigger">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-post">POST</span>
+                        <span class="api-endpoint-path">/system/update</span>
+                    </div>
+                    <span class="settings-badge-cyan">Trigger Stable Update</span>
+                </div>
+                <p>Initiates the automated update to the latest official stable release in a detached background worker. Active VPN client connections will NOT be disconnected.</p>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s -X POST '{{ api_base_url }}/system/update' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>Response 202 Accepted</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>{
+  "success": true,
+  "message": "Stable update process initiated in background.",
+  "current_version": "1.9.0",
+  "target_version": "1.9.1",
+  "status_endpoint": "/api/v1/system/update/status"
+}</code></pre>
+                </div>
+            </section>
+
+            <!-- System & Updates: GET /system/update/status -->
+            <section class="api-endpoint-card" id="endpoint-update-status">
+                <div class="api-endpoint-header">
+                    <div class="api-endpoint-route">
+                        <span class="badge-method badge-method-get">GET</span>
+                        <span class="api-endpoint-path">/system/update/status</span>
+                    </div>
+                    <span class="settings-badge-cyan">Update Progress &amp; Logs</span>
+                </div>
+                <p>Polls progress percentage, current step info, error details, and recent log output of an ongoing or completed update.</p>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>cURL Request</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>curl -s '{{ api_base_url }}/system/update/status' \
+  -H 'X-API-Key: sk-your-key'</code></pre>
+                </div>
+
+                <div class="api-code-box">
+                    <div class="api-code-header">
+                        <span>Response 200 OK</span>
+                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    </div>
+                    <pre><code>{
+  "success": true,
+  "status": "running",
+  "step": "dependencies",
+  "progress": 60,
+  "message": "Updating Python dependencies...",
+  "error": null,
+  "timestamp": 1726930045,
+  "log": "..."
 }</code></pre>
                 </div>
             </section>

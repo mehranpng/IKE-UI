@@ -3081,3 +3081,114 @@ input.input-error:focus {
         width: 100%;
     }
 }
+
+/* Dashboard Update Dot & Navbar */
+.settings-nav-btn {
+    position: relative;
+}
+
+.settings-update-dot {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 9px;
+    height: 9px;
+    background-color: #facc15;
+    border-radius: 50%;
+    border: 2px solid var(--bg-surface, #1e293b);
+    box-shadow: 0 0 8px rgba(250, 204, 21, 0.9);
+    pointer-events: none;
+    animation: pulse-update-dot 2s infinite ease-in-out;
+}
+
+@keyframes pulse-update-dot {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+        box-shadow: 0 0 6px rgba(250, 204, 21, 0.9);
+    }
+    50% {
+        transform: scale(1.3);
+        opacity: 0.85;
+        box-shadow: 0 0 12px rgba(250, 204, 21, 1);
+    }
+}
+
+/* System Updates Card Components */
+.update-status-highlight {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    border-radius: var(--radius-md);
+    padding: 1rem 1.25rem;
+    margin-top: 0.75rem;
+}
+
+.update-status-highlight.update-available {
+    background: rgba(234, 179, 8, 0.08);
+    border-color: rgba(234, 179, 8, 0.35);
+}
+
+.update-release-notes {
+    max-height: 180px;
+    overflow-y: auto;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 1rem;
+    margin-top: 0.65rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.update-progress-container {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    border-radius: var(--radius-md);
+    padding: 1.15rem;
+    margin-top: 0.75rem;
+}
+
+.update-progress-bar-wrap {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0.75rem 0;
+}
+
+.update-progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent-cyan, #06b6d4), var(--accent-purple, #a855f7));
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+
+.update-log-terminal {
+    background: #090d16;
+    color: #e2e8f0;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.78rem;
+    line-height: 1.45;
+    padding: 0.75rem 0.9rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    max-height: 160px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-top: 0.65rem;
+}
+
+.spin-icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

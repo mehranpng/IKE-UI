@@ -19,6 +19,7 @@ import hashlib
 import hmac
 from functools import wraps
 from urllib.parse import quote
+import urllib.request
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, stream_with_context, send_file, abort, has_request_context
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -37,25 +38,25 @@ def generate_random_pwd(length=8):
     alphabet = string.ascii_letters + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(length))
 
-def get_persistent_secret_key():
-    candidates = [
+def get_secret_key():
+    key_candidates = [
         SECRET_KEY_PATH,
-        os.path.join(BASE_DIR, ".secret.key")
+        os.path.join(BASE_DIR, "secret.key"),
+        "/tmp/strongswan-panel.key"
     ]
-    for path in candidates:
-        if os.path.exists(path):
-            try:
-                with open(path, "rb") as f:
-                    key = f.read()
-                    if len(key) >= 16:
-                        return key
-            except Exception:
-                pass
-
-    new_key = os.urandom(32)
-    for path in candidates:
+    for path in key_candidates:
         try:
-            os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+            if os.path.exists(path):
+                with open(path, "rb") as f:
+                    k = f.read().strip()
+                    if k:
+                        return k
+        except Exception:
+            continue
+    new_key = secrets.token_bytes(32)
+    for path in key_candidates:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "wb") as f:
                 f.write(new_key)
             os.chmod(path, 0o600)
@@ -64,7 +65,7 @@ def get_persistent_secret_key():
             continue
     return new_key
 
-APP_VERSION = "1.8.11"
+APP_VERSION = "1.9.0"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
@@ -201,6 +202,8 @@ def inject_globals():
         app_version=APP_VERSION,
         current_admin=session.get("admin_user", ""),
         vpn_enabled=(get_system_config("vpn_enabled", "1") == "1"),
+        update_available=(get_system_config("update_available", "0") == "1"),
+        latest_version=get_system_config("latest_available_version", APP_VERSION),
         base_path=request.script_root,
         panel_path=get_system_config("panel_path", ""),
         session_timeout=session_timeout,
@@ -478,6 +481,385 @@ def format_duration_minutes(minutes):
     if m > 0:
         parts.append(f"{m}m")
     return " ".join(parts)
+
+UPDATE_CACHE_TTL = 6 * 3600  # 6 hours
+GITHUB_REPO = "mehranpng/IKE-UI"
+UPDATE_LOCK_FILE = "/tmp/ike_ui_update.lock"
+UPDATE_STATUS_FILE = "/tmp/ike_ui_update_status.json"
+UPDATE_LOG_FILE = "/opt/ike-ui/update.log"
+
+def parse_semver(ver_str):
+    if not ver_str:
+        return (0, 0, 0)
+    ver_clean = str(ver_str).strip().lstrip("v")
+    nums = [int(n) for n in re.findall(r'\d+', ver_clean)]
+    while len(nums) < 3:
+        nums.append(0)
+    return tuple(nums[:3])
+
+def is_newer_version(cur_ver, target_ver):
+    return parse_semver(target_ver) > parse_semver(cur_ver)
+
+def check_for_updates(force=False):
+    """
+    Checks GitHub for official stable releases.
+    Uses 6-hour cache unless force=True.
+    """
+    now = int(time.time())
+    try:
+        last_check = int(get_system_config("last_update_check", "0") or "0")
+    except Exception:
+        last_check = 0
+    cached_avail = (get_system_config("update_available", "0") == "1")
+    cached_ver = get_system_config("latest_available_version", APP_VERSION)
+    cached_notes = get_system_config("update_release_notes", "")
+    cached_url = get_system_config("update_release_url", "")
+    cached_name = get_system_config("update_release_name", "")
+
+    if not force and (now - last_check < UPDATE_CACHE_TTL) and last_check > 0:
+        return {
+            "success": True,
+            "cached": True,
+            "current_version": APP_VERSION,
+            "latest_version": cached_ver,
+            "update_available": cached_avail,
+            "release_name": cached_name,
+            "release_notes": cached_notes,
+            "html_url": cached_url,
+            "last_checked": last_check
+        }
+
+    latest_tag = None
+    release_name = ""
+    release_notes = ""
+    release_url = ""
+    published_at = ""
+
+    # 1. Query GitHub Releases API for official stable release
+    try:
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": f"IKE-UI-Panel/{APP_VERSION}",
+                "Accept": "application/vnd.github.v3+json"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8"))
+                tag_raw = data.get("tag_name", "")
+                if tag_raw:
+                    latest_tag = tag_raw.lstrip("v")
+                    release_name = data.get("name", f"Release {tag_raw}")
+                    release_notes = data.get("body", "")
+                    release_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/tag/{tag_raw}")
+                    published_at = data.get("published_at", "")
+    except Exception:
+        latest_tag = None
+
+    # 2. Fallback: git ls-remote --tags if GitHub API was unavailable/rate limited
+    if not latest_tag:
+        try:
+            res = subprocess.run(
+                ["git", "ls-remote", "--tags", f"https://github.com/{GITHUB_REPO}.git"],
+                capture_output=True,
+                text=True,
+                timeout=8,
+                check=False
+            )
+            if res.returncode == 0:
+                tag_matches = re.findall(r'refs/tags/(v?[0-9]+\.[0-9]+(?:\.[0-9]+)?)', res.stdout)
+                if tag_matches:
+                    sorted_tags = sorted(tag_matches, key=lambda t: parse_semver(t), reverse=True)
+                    if sorted_tags:
+                        latest_tag = sorted_tags[0].lstrip("v")
+                        release_name = f"Release v{latest_tag}"
+                        release_url = f"https://github.com/{GITHUB_REPO}/releases/tag/v{latest_tag}"
+        except Exception:
+            pass
+
+    # 3. If still not found, check local git tags if in git repository
+    if not latest_tag:
+        try:
+            install_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            res = subprocess.run(
+                ["git", "tag", "-l"],
+                cwd=install_dir,
+                capture_output=True,
+                text=True,
+                timeout=3,
+                check=False
+            )
+            if res.returncode == 0:
+                tag_matches = re.findall(r'(v?[0-9]+\.[0-9]+(?:\.[0-9]+)?)', res.stdout)
+                if tag_matches:
+                    sorted_tags = sorted(tag_matches, key=lambda t: parse_semver(t), reverse=True)
+                    if sorted_tags:
+                        latest_tag = sorted_tags[0].lstrip("v")
+                        release_name = f"Release v{latest_tag}"
+                        release_url = f"https://github.com/{GITHUB_REPO}/releases/tag/v{latest_tag}"
+        except Exception:
+            pass
+
+    if not latest_tag:
+        return {
+            "success": False,
+            "error": "Could not connect to GitHub to check for updates.",
+            "current_version": APP_VERSION,
+            "latest_version": cached_ver or APP_VERSION,
+            "update_available": cached_avail,
+            "release_name": cached_name,
+            "release_notes": cached_notes,
+            "html_url": cached_url,
+            "last_checked": last_check
+        }
+
+    has_update = is_newer_version(APP_VERSION, latest_tag)
+
+    set_system_config("last_update_check", str(now))
+    set_system_config("update_available", "1" if has_update else "0")
+    set_system_config("latest_available_version", latest_tag)
+    set_system_config("update_release_notes", release_notes)
+    set_system_config("update_release_url", release_url)
+    set_system_config("update_release_name", release_name)
+
+    return {
+        "success": True,
+        "cached": False,
+        "current_version": APP_VERSION,
+        "latest_version": latest_tag,
+        "update_available": has_update,
+        "release_name": release_name,
+        "release_notes": release_notes,
+        "html_url": release_url,
+        "published_at": published_at,
+        "last_checked": now
+    }
+
+def get_update_status():
+    status_file = UPDATE_STATUS_FILE
+    if not os.path.exists(status_file):
+        return {
+            "status": "idle",
+            "progress": 0,
+            "step": "idle",
+            "message": "No update in progress",
+            "error": None,
+            "timestamp": int(time.time()),
+            "log": ""
+        }
+    try:
+        with open(status_file, "r") as f:
+            data = json.load(f)
+    except Exception:
+        data = {
+            "status": "unknown",
+            "progress": 0,
+            "step": "unknown",
+            "message": "Reading status...",
+            "error": None,
+            "timestamp": int(time.time())
+        }
+
+    log_content = ""
+    log_path = UPDATE_LOG_FILE if os.path.exists(UPDATE_LOG_FILE) else "/tmp/ike_ui_update.log"
+    if os.path.exists(log_path):
+        try:
+            with open(log_path, "r", errors="ignore") as f:
+                lines = f.readlines()
+                log_content = "".join(lines[-25:])
+        except Exception:
+            pass
+
+    data["log"] = log_content
+    return data
+
+def run_panel_update():
+    """
+    Launches an isolated detached bash worker to update the panel to the latest stable release.
+    """
+    if os.path.exists(UPDATE_LOCK_FILE):
+        try:
+            with open(UPDATE_LOCK_FILE, "r") as lf:
+                pid_str = lf.read().strip()
+                if pid_str.isdigit():
+                    pid = int(pid_str)
+                    os.kill(pid, 0)
+                    return False, "An update process is already in progress."
+        except (OSError, ProcessLookupError):
+            try:
+                os.remove(UPDATE_LOCK_FILE)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    install_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if not os.path.exists(os.path.join(install_dir, "panel", "app.py")):
+        install_dir = "/opt/ike-ui"
+
+    updater_script = f"""#!/usr/bin/env bash
+set -e
+
+STATUS_FILE="{UPDATE_STATUS_FILE}"
+LOCK_FILE="{UPDATE_LOCK_FILE}"
+INSTALL_DIR="{install_dir}"
+LOG_FILE="{UPDATE_LOG_FILE}"
+
+mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
+touch "$LOG_FILE" 2>/dev/null || LOG_FILE="/tmp/ike_ui_update.log"
+
+exec >> "$LOG_FILE" 2>&1
+
+echo "=========================================="
+echo "IKE-UI Stable Update started at $(date)"
+echo "Working directory: $INSTALL_DIR"
+echo "=========================================="
+
+update_status() {{
+    local status="$1"
+    local step="$2"
+    local progress="$3"
+    local msg="$4"
+    local err="${{5:-}}"
+    cat > "$STATUS_FILE" << EOF
+{{
+    "status": "$status",
+    "step": "$step",
+    "progress": $progress,
+    "message": "$msg",
+    "error": "$err",
+    "timestamp": $(date +%s)
+}}
+EOF
+}}
+
+on_error() {{
+    local exit_code=$?
+    local line=$1
+    echo "[!] Update error on line $line (code: $exit_code)"
+    update_status "failed" "error" 0 "Update failed at line $line" "Check $LOG_FILE for details."
+    rm -f "$LOCK_FILE"
+    exit 1
+}}
+
+trap 'on_error $LINENO' ERR
+
+echo "$$" > "$LOCK_FILE"
+
+update_status "running" "fetching" 15 "Fetching latest stable releases from GitHub..."
+cd "$INSTALL_DIR"
+git remote set-url origin "https://github.com/mehranpng/IKE-UI.git" 2>/dev/null || true
+git fetch --all --tags --prune --force
+
+LATEST_TAG=$(git tag -l --sort=-v:refname | grep -E '^v?[0-9]+\\.[0-9]+' | head -n 1)
+if [ -z "$LATEST_TAG" ]; then
+    echo "[!] No release tags found"
+    update_status "failed" "tag_not_found" 0 "No release tags found in repository" "No release tags found."
+    rm -f "$LOCK_FILE"
+    exit 1
+fi
+
+echo "[+] Latest stable release tag: $LATEST_TAG"
+update_status "running" "checkout" 35 "Resetting codebase to stable tag $LATEST_TAG..."
+git checkout -B main origin/main 2>/dev/null || true
+git reset --hard "$LATEST_TAG"
+chmod +x "${{INSTALL_DIR}}/install.sh" 2>/dev/null || true
+
+update_status "running" "dependencies" 60 "Updating Python dependencies..."
+if [ -d "${{INSTALL_DIR}}/venv" ]; then
+    "${{INSTALL_DIR}}/venv/bin/pip" install --disable-pip-version-check --no-cache-dir -r "${{INSTALL_DIR}}/panel/requirements.txt"
+fi
+
+update_status "running" "database" 75 "Verifying database migrations..."
+"${{INSTALL_DIR}}/venv/bin/python" -c "
+import sys
+sys.path.insert(0, '${{INSTALL_DIR}}/panel')
+import app
+app.init_db()
+"
+
+update_status "running" "nginx" 85 "Verifying web server configuration..."
+if command -v nginx >/dev/null 2>&1; then
+    if nginx -t >/dev/null 2>&1; then
+        systemctl reload nginx 2>/dev/null || true
+    fi
+fi
+
+update_status "restarting" "service" 95 "Restarting IKE-UI panel service..."
+rm -f "$LOCK_FILE"
+
+cat > "$STATUS_FILE" << EOF
+{{
+    "status": "completed",
+    "step": "done",
+    "progress": 100,
+    "message": "Successfully updated to $LATEST_TAG!",
+    "error": null,
+    "timestamp": $(date +%s)
+}}
+EOF
+
+echo "[+] Update to $LATEST_TAG completed successfully. Restarting service..."
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl restart --no-block ike-ui.service 2>/dev/null || systemctl restart --no-block ikev2-panel.service 2>/dev/null || true
+fi
+"""
+    script_path = "/tmp/ike_ui_updater.sh"
+    with open(script_path, "w") as sf:
+        sf.write(updater_script)
+    os.chmod(script_path, 0o755)
+
+    with open(UPDATE_STATUS_FILE, "w") as st:
+        json.dump({
+            "status": "running",
+            "step": "starting",
+            "progress": 5,
+            "message": "Initializing update worker...",
+            "error": None,
+            "timestamp": int(time.time())
+        }, st)
+
+    launched = False
+    if os.path.exists("/run/systemd/system"):
+        try:
+            res = subprocess.run([
+                "systemd-run",
+                "--unit=ike-ui-updater",
+                "--remain-after-exit=no",
+                "/bin/bash",
+                script_path
+            ], capture_output=True, text=True, check=False)
+            if res.returncode == 0:
+                launched = True
+        except Exception:
+            launched = False
+
+    if not launched:
+        subprocess.Popen(
+            ["/bin/bash", script_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            close_fds=True
+        )
+
+    return True, "Update initiated successfully"
+
+def update_checker_daemon():
+    """Background thread that periodically checks for new releases every 6 hours."""
+    time.sleep(30)
+    while True:
+        try:
+            check_for_updates(force=True)
+        except Exception as ex:
+            print(f"[!] Update checker daemon error: {ex}", file=sys.stderr)
+        time.sleep(6 * 3600)
+
+update_daemon_thread = threading.Thread(target=update_checker_daemon, daemon=True, name="UpdateChecker")
+update_daemon_thread.start()
 
 def init_db():
     try:
@@ -2028,6 +2410,8 @@ def sse_stream():
                     },
                     "sys": sys_metrics,
                     "vpn_enabled": (get_system_config("vpn_enabled", "1") == "1"),
+                    "update_available": (get_system_config("update_available", "0") == "1"),
+                    "latest_version": get_system_config("latest_available_version", APP_VERSION),
                     "users_live": users_live
                 }
 
@@ -2529,6 +2913,46 @@ def public_api_ping():
         "server_time": now.strftime("%Y-%m-%d %H:%M:%S")
     })
 
+@app.route("/api/v1/system/update/check", methods=["GET"])
+@api_auth_required
+def api_system_update_check():
+    force = request.args.get("force", "").lower() in ["1", "true", "yes"]
+    res = check_for_updates(force=force)
+    return jsonify(res)
+
+@app.route("/api/v1/system/update", methods=["POST"])
+@api_auth_required
+def api_system_update_trigger():
+    check_info = check_for_updates(force=False)
+    force = False
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        force = bool(data.get("force", False))
+
+    if not check_info.get("update_available") and not force:
+        return jsonify({
+            "success": False,
+            "error": f"You are already running the latest version (v{APP_VERSION})."
+        }), 400
+
+    ok, msg = run_panel_update()
+    if not ok:
+        return jsonify({"success": False, "error": msg}), 409
+
+    return jsonify({
+        "success": True,
+        "message": "Stable update process initiated in background.",
+        "current_version": APP_VERSION,
+        "target_version": check_info.get("latest_version"),
+        "status_endpoint": "/api/v1/system/update/status"
+    }), 202
+
+@app.route("/api/v1/system/update/status", methods=["GET"])
+@api_auth_required
+def api_system_update_status():
+    status = get_update_status()
+    return jsonify({"success": True, **status})
+
 @app.route("/api/v1/users/<int:user_id>", methods=["GET"])
 @api_auth_required
 def public_api_get_user(user_id):
@@ -2881,8 +3305,53 @@ def settings():
         api_key_mask=get_system_config("api_key_display", "") if api_key_hash else "",
         api_base_url=get_api_base_url(),
         session_timeout=session_timeout,
-        session_timeout_formatted=session_timeout_formatted
+        session_timeout_formatted=session_timeout_formatted,
+        update_available=(get_system_config("update_available", "0") == "1"),
+        latest_version=get_system_config("latest_available_version", APP_VERSION),
+        last_update_check=int(get_system_config("last_update_check", "0") or "0"),
+        update_release_notes=get_system_config("update_release_notes", ""),
+        update_release_name=get_system_config("update_release_name", ""),
+        update_release_url=get_system_config("update_release_url", "")
     )
+
+@app.route("/settings/update/check", methods=["GET"])
+@login_required
+def settings_update_check():
+    force = request.args.get("force", "").lower() in ["1", "true", "yes"]
+    res = check_for_updates(force=force)
+    return jsonify(res)
+
+@app.route("/settings/update/start", methods=["POST"])
+@login_required
+def settings_update_start():
+    check_info = check_for_updates(force=False)
+    force = False
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        force = bool(data.get("force", False))
+
+    if not check_info.get("update_available") and not force:
+        return jsonify({
+            "success": False,
+            "error": f"You are already running the latest version (v{APP_VERSION})."
+        }), 400
+
+    ok, msg = run_panel_update()
+    if not ok:
+        return jsonify({"success": False, "error": msg}), 409
+
+    return jsonify({
+        "success": True,
+        "message": "Update process initiated.",
+        "current_version": APP_VERSION,
+        "target_version": check_info.get("latest_version")
+    })
+
+@app.route("/settings/update/status", methods=["GET"])
+@login_required
+def settings_update_status():
+    status = get_update_status()
+    return jsonify({"success": True, **status})
 
 @app.route("/settings/create-api-key", methods=["POST"])
 @login_required

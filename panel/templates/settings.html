@@ -88,6 +88,122 @@
                 </div>
             </div>
 
+            <div class="card settings-card" id="systemUpdateCard">
+                <div class="card-header settings-header-flex">
+                    <div class="settings-header-title">
+                        <h2>System Updates</h2>
+                        <p>Official stable releases and version management</p>
+                    </div>
+                    <div class="settings-header-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btnCheckUpdate" onclick="manualCheckUpdate()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="checkUpdateIcon">
+                                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                            </svg>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon" id="checkUpdateSpinner" style="display: none;">
+                                <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="12"/>
+                            </svg>
+                            <span id="btnCheckUpdateText">Check for Updates</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body settings-card-body-stack">
+                    <div class="settings-status-box" id="updateStatusBox">
+                        <div class="settings-status-info">
+                            <div class="settings-status-text">
+                                <div class="settings-status-title" id="updateStatusTitle">
+                                    {% if update_available %}
+                                        New Version Available: <span style="color: var(--accent-yellow, #facc15);">v{{ latest_version }}</span>
+                                    {% else %}
+                                        Panel is Up to Date (v{{ app_version }})
+                                    {% endif %}
+                                </div>
+                                <div class="settings-status-desc" id="updateStatusDesc">
+                                    {% if update_available %}
+                                        A newer stable release is available for your system. Active VPN connections will not be interrupted during update.
+                                    {% else %}
+                                        You are currently running the latest official stable release.
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <span id="updateStatusPill" class="status-pill {% if update_available %}status-disabled{% else %}status-active{% endif %}" style="{% if update_available %}background: rgba(234, 179, 8, 0.15); color: #facc15; border-color: rgba(234, 179, 8, 0.35);{% endif %}">
+                            <span class="status-dot" style="{% if update_available %}background-color: #facc15; box-shadow: 0 0 6px #facc15;{% endif %}"></span>
+                            <span id="updateStatusPillText">{% if update_available %}Update Ready{% else %}Up to date{% endif %}</span>
+                        </span>
+                    </div>
+
+                    <div id="updateAvailableSection" style="{% if update_available %}display: block;{% else %}display: none;{% endif %}">
+                        <div class="update-status-highlight update-available">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                                <div>
+                                    <div style="font-weight: 700; font-size: 0.95rem; color: #ffffff; display: flex; align-items: center; gap: 0.5rem;">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #facc15;">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="12" y1="8" x2="12" y2="12"/>
+                                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                        </svg>
+                                        <span id="updateTargetVersionTitle">IKE-UI v{{ latest_version }}</span>
+                                        <span class="settings-badge-cyan">Official Stable</span>
+                                    </div>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                                        Installed: <code>v{{ app_version }}</code> &rarr; Target: <code>v<span id="updateTargetVersionText">{{ latest_version }}</span></code>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-primary" id="btnOpenUpdateModal" onclick="openUpdateModal()">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                    <span>Update Now</span>
+                                </button>
+                            </div>
+                            {% if update_release_notes %}
+                            <div class="update-release-notes" id="updateReleaseNotes">{{ update_release_notes }}</div>
+                            {% else %}
+                            <div class="update-release-notes" id="updateReleaseNotes" style="display: none;"></div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div id="updateProgressContainer" class="update-progress-container" style="display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon" style="color: var(--accent-cyan);">
+                                    <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="12"/>
+                                </svg>
+                                <span style="font-weight: 700; font-size: 0.88rem; color: #ffffff;" id="updateCurrentStepText">Updating panel...</span>
+                            </div>
+                            <span style="font-family: var(--font-mono); font-weight: 700; font-size: 0.84rem; color: var(--accent-cyan);" id="updatePercentText">0%</span>
+                        </div>
+                        <div class="update-progress-bar-wrap">
+                            <div class="update-progress-bar-fill" id="updateProgressBarFill"></div>
+                        </div>
+                        <div class="update-log-terminal" id="updateLogTerminal">Connecting to update worker...</div>
+                    </div>
+
+                    <div class="settings-row" style="border-bottom: none; padding-bottom: 0;">
+                        <div class="settings-row-info">
+                            <div class="settings-row-label">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-secondary);">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12 6 12 12 16 14"/>
+                                </svg>
+                                <span class="settings-row-title" style="font-size: 0.82rem;">Last Checked</span>
+                            </div>
+                            <div class="settings-row-desc" id="updateLastCheckedDesc" style="font-size: 0.8rem;">
+                                {% if last_update_check > 0 %}
+                                    <span id="updateLastCheckedTime" data-timestamp="{{ last_update_check }}">Checking...</span>
+                                {% else %}
+                                    Not checked yet
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
             <div class="card settings-card">
                 <div class="card-header">
                     <h2>API Access & Integrations</h2>
@@ -563,6 +679,58 @@
         </div>
     </div>
 
+    <div id="updateModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="updateModalTitle">
+        <div class="modal-content" style="max-width: 490px;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent-cyan);">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    <h3 id="updateModalTitle">Update IKE-UI Panel</h3>
+                </div>
+                <button class="btn-close" type="button" onclick="closeUpdateModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding-top: 1.25rem;">
+                <p style="color: var(--text-primary); font-size: 0.9rem; line-height: 1.5; margin-bottom: 1rem;">
+                    Are you sure you want to update IKE-UI from <strong>v{{ app_version }}</strong> to <strong style="color: var(--accent-cyan);" id="modalTargetVersion">v{{ latest_version }}</strong>?
+                </p>
+
+                <div style="padding: 0.85rem 1rem; background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.25); border-radius: var(--radius-md); margin-bottom: 1.25rem;">
+                    <div style="display: flex; gap: 0.6rem; align-items: flex-start;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent-cyan); flex-shrink: 0; margin-top: 1px;">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="16" x2="12" y2="12"/>
+                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                        </svg>
+                        <div style="font-size: 0.82rem; color: #cffafe; line-height: 1.45;">
+                            <strong>No VPN Interruption:</strong> Active VPN connections will NOT be dropped. Only the web panel interface service will restart for a few seconds.
+                        </div>
+                    </div>
+                </div>
+
+                <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">
+                    During this automated process:
+                    <ul style="margin: 0.4rem 0 0 1.2rem; padding: 0;">
+                        <li>Latest official release is verified from GitHub</li>
+                        <li>Dependencies and migrations are updated</li>
+                        <li>Panel service is smoothly restarted</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeUpdateModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmStartUpdate" onclick="executeStartUpdate()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    <span>Confirm & Update</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="apiKeyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="apiKeyModalTitle">
         <div class="modal-content api-key-modal-content">
             <div class="modal-header">
@@ -915,6 +1083,7 @@
             if (event.target == document.getElementById('confirmVpnModal')) cancelVpnToggle();
             if (event.target == document.getElementById('restoreModal')) closeRestoreModal();
             if (event.target == document.getElementById('apiKeyModal')) closeApiKeyModal();
+            if (event.target == document.getElementById('updateModal')) closeUpdateModal();
         }
 
         let selectedRestoreFile = null;
@@ -1489,9 +1658,309 @@
             }, false);
         }
 
+        // ==========================================
+        // System Updates Logic
+        // ==========================================
+        let updatePollInterval = null;
+        let isUpdating = false;
+
+        function formatRelativeTime(timestamp) {
+            if (!timestamp || timestamp <= 0) return 'Not checked yet';
+            const now = Math.floor(Date.now() / 1000);
+            const diff = now - timestamp;
+            if (diff < 30) return 'Just now';
+            if (diff < 60) return `${diff}s ago`;
+            if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+            return `${Math.floor(diff / 86400)}d ago`;
+        }
+
+        function updateLastCheckedDisplay() {
+            const el = document.getElementById('updateLastCheckedTime');
+            if (!el) return;
+            const ts = parseInt(el.getAttribute('data-timestamp') || '0', 10);
+            if (ts > 0) {
+                el.textContent = formatRelativeTime(ts);
+            }
+        }
+
+        async function manualCheckUpdate() {
+            const btn = document.getElementById('btnCheckUpdate');
+            const icon = document.getElementById('checkUpdateIcon');
+            const spinner = document.getElementById('checkUpdateSpinner');
+            const btnText = document.getElementById('btnCheckUpdateText');
+
+            if (btn) btn.disabled = true;
+            if (icon) icon.style.display = 'none';
+            if (spinner) spinner.style.display = 'inline-block';
+            if (btnText) btnText.textContent = 'Checking...';
+
+            try {
+                const resp = await fetch(`${BASE_PATH}/settings/update/check?force=1`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await resp.json();
+
+                if (!resp.ok || !data.success) {
+                    showToast(data.error || 'Failed to check for updates. GitHub might be temporarily unreachable.', 'error');
+                    return;
+                }
+
+                const timeEl = document.getElementById('updateLastCheckedTime');
+                if (timeEl) {
+                    timeEl.setAttribute('data-timestamp', data.last_checked || Math.floor(Date.now() / 1000));
+                    updateLastCheckedDisplay();
+                }
+
+                if (data.update_available) {
+                    const titleEl = document.getElementById('updateStatusTitle');
+                    if (titleEl) titleEl.innerHTML = `New Version Available: <span style="color: var(--accent-yellow, #facc15);">v${data.latest_version}</span>`;
+
+                    const descEl = document.getElementById('updateStatusDesc');
+                    if (descEl) descEl.textContent = 'A newer official stable release is available for your system. Active VPN connections will not be interrupted.';
+
+                    const pill = document.getElementById('updateStatusPill');
+                    if (pill) {
+                        pill.className = 'status-pill status-disabled';
+                        pill.style.background = 'rgba(234, 179, 8, 0.15)';
+                        pill.style.color = '#facc15';
+                        pill.style.borderColor = 'rgba(234, 179, 8, 0.35)';
+                    }
+                    const pillDot = pill ? pill.querySelector('.status-dot') : null;
+                    if (pillDot) {
+                        pillDot.style.backgroundColor = '#facc15';
+                        pillDot.style.boxShadow = '0 0 6px #facc15';
+                    }
+                    const pillText = document.getElementById('updateStatusPillText');
+                    if (pillText) pillText.textContent = 'Update Ready';
+
+                    const availSec = document.getElementById('updateAvailableSection');
+                    if (availSec) availSec.style.display = 'block';
+
+                    const targetTitle = document.getElementById('updateTargetVersionTitle');
+                    if (targetTitle) targetTitle.textContent = `IKE-UI v${data.latest_version}`;
+
+                    const targetText = document.getElementById('updateTargetVersionText');
+                    if (targetText) targetText.textContent = data.latest_version;
+
+                    const modalTarget = document.getElementById('modalTargetVersion');
+                    if (modalTarget) modalTarget.textContent = `v${data.latest_version}`;
+
+                    const notesEl = document.getElementById('updateReleaseNotes');
+                    if (notesEl) {
+                        if (data.release_notes) {
+                            notesEl.textContent = data.release_notes;
+                            notesEl.style.display = 'block';
+                        } else {
+                            notesEl.style.display = 'none';
+                        }
+                    }
+
+                    showToast(`A new stable update (v${data.latest_version}) is available!`, 'warning', 4500);
+                } else {
+                    const titleEl = document.getElementById('updateStatusTitle');
+                    if (titleEl) titleEl.textContent = `Panel is Up to Date (v${data.current_version})`;
+
+                    const descEl = document.getElementById('updateStatusDesc');
+                    if (descEl) descEl.textContent = 'You are currently running the latest official stable release.';
+
+                    const pill = document.getElementById('updateStatusPill');
+                    if (pill) {
+                        pill.className = 'status-pill status-active';
+                        pill.style.background = '';
+                        pill.style.color = '';
+                        pill.style.borderColor = '';
+                    }
+                    const pillDot = pill ? pill.querySelector('.status-dot') : null;
+                    if (pillDot) {
+                        pillDot.style.backgroundColor = '';
+                        pillDot.style.boxShadow = '';
+                    }
+                    const pillText = document.getElementById('updateStatusPillText');
+                    if (pillText) pillText.textContent = 'Up to date';
+
+                    const availSec = document.getElementById('updateAvailableSection');
+                    if (availSec) availSec.style.display = 'none';
+
+                    showToast(`You are already running the latest stable release (v${data.current_version}).`, 'success', 3500);
+                }
+            } catch (err) {
+                showToast('Network error while checking updates.', 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+                if (icon) icon.style.display = 'inline-block';
+                if (spinner) spinner.style.display = 'none';
+                if (btnText) btnText.textContent = 'Check for Updates';
+            }
+        }
+
+        function openUpdateModal() {
+            const modal = document.getElementById('updateModal');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeUpdateModal() {
+            const modal = document.getElementById('updateModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function executeStartUpdate() {
+            closeUpdateModal();
+
+            const btnOpen = document.getElementById('btnOpenUpdateModal');
+            const btnCheck = document.getElementById('btnCheckUpdate');
+            const progressContainer = document.getElementById('updateProgressContainer');
+            const stepText = document.getElementById('updateCurrentStepText');
+            const percentText = document.getElementById('updatePercentText');
+            const barFill = document.getElementById('updateProgressBarFill');
+            const logTerminal = document.getElementById('updateLogTerminal');
+
+            if (btnOpen) btnOpen.disabled = true;
+            if (btnCheck) btnCheck.disabled = true;
+            if (progressContainer) progressContainer.style.display = 'block';
+
+            if (stepText) stepText.textContent = 'Initiating update process...';
+            if (percentText) percentText.textContent = '5%';
+            if (barFill) barFill.style.width = '5%';
+            if (logTerminal) logTerminal.textContent = 'Starting background updater worker...\n';
+
+            try {
+                const resp = await fetch(`${BASE_PATH}/settings/update/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': CSRF_TOKEN,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ force: false })
+                });
+
+                const data = await resp.json();
+                if (!resp.ok || !data.success) {
+                    showToast(data.error || 'Could not start update.', 'error');
+                    if (stepText) stepText.textContent = 'Failed to start update.';
+                    if (btnOpen) btnOpen.disabled = false;
+                    if (btnCheck) btnCheck.disabled = false;
+                    return;
+                }
+
+                isUpdating = true;
+                showToast('Update process started. Monitoring progress...', 'info', 4000);
+
+                if (updatePollInterval) clearInterval(updatePollInterval);
+                updatePollInterval = setInterval(pollUpdateStatus, 1500);
+
+            } catch (err) {
+                showToast('Network error starting update: ' + err.message, 'error');
+                if (btnOpen) btnOpen.disabled = false;
+                if (btnCheck) btnCheck.disabled = false;
+            }
+        }
+
+        async function pollUpdateStatus() {
+            const stepText = document.getElementById('updateCurrentStepText');
+            const percentText = document.getElementById('updatePercentText');
+            const barFill = document.getElementById('updateProgressBarFill');
+            const logTerminal = document.getElementById('updateLogTerminal');
+
+            try {
+                const resp = await fetch(`${BASE_PATH}/settings/update/status`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                if (!resp.ok) {
+                    if (isUpdating) {
+                        if (stepText) stepText.textContent = 'Restarting panel service... Reconnecting...';
+                        if (percentText) percentText.textContent = '95%';
+                        if (barFill) barFill.style.width = '95%';
+                    }
+                    return;
+                }
+
+                const data = await resp.json();
+                if (data.log && logTerminal) {
+                    logTerminal.textContent = data.log;
+                    logTerminal.scrollTop = logTerminal.scrollHeight;
+                }
+
+                if (data.progress && percentText) {
+                    percentText.textContent = `${data.progress}%`;
+                }
+                if (data.progress && barFill) {
+                    barFill.style.width = `${data.progress}%`;
+                }
+                if (data.message && stepText) {
+                    stepText.textContent = data.message;
+                }
+
+                if (data.status === 'completed') {
+                    if (updatePollInterval) clearInterval(updatePollInterval);
+                    updatePollInterval = null;
+                    isUpdating = false;
+
+                    if (stepText) stepText.textContent = 'Update completed successfully! Reloading...';
+                    if (percentText) percentText.textContent = '100%';
+                    if (barFill) barFill.style.width = '100%';
+
+                    showToast('IKE-UI updated successfully! Reloading page...', 'success', 5000);
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2500);
+                } else if (data.status === 'failed') {
+                    if (updatePollInterval) clearInterval(updatePollInterval);
+                    updatePollInterval = null;
+                    isUpdating = false;
+
+                    if (stepText) stepText.textContent = 'Update Failed';
+                    showToast(data.error || data.message || 'Update failed.', 'error', 6000);
+
+                    const btnOpen = document.getElementById('btnOpenUpdateModal');
+                    const btnCheck = document.getElementById('btnCheckUpdate');
+                    if (btnOpen) btnOpen.disabled = false;
+                    if (btnCheck) btnCheck.disabled = false;
+                } else if (data.status === 'restarting') {
+                    if (stepText) stepText.textContent = 'Restarting panel service... Waiting for restart to complete...';
+                    setTimeout(reconnectAfterRestart, 2500);
+                }
+            } catch (e) {
+                if (isUpdating) {
+                    if (stepText) stepText.textContent = 'Restarting panel service... Reconnecting...';
+                }
+            }
+        }
+
+        function reconnectAfterRestart() {
+            let attempts = 0;
+            const maxAttempts = 25;
+            const stepText = document.getElementById('updateCurrentStepText');
+
+            const reconnectTimer = setInterval(async () => {
+                attempts++;
+                if (stepText) stepText.textContent = `Reconnecting to panel (attempt ${attempts}/${maxAttempts})...`;
+                try {
+                    const pingResp = await fetch(`${BASE_PATH}/api/v1/ping`, { cache: 'no-store' });
+                    if (pingResp.ok) {
+                        clearInterval(reconnectTimer);
+                        if (stepText) stepText.textContent = 'Connected! Finalizing...';
+                        showToast('Panel successfully updated and back online!', 'success', 4000);
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    }
+                } catch (e) {
+                    if (attempts >= maxAttempts) {
+                        clearInterval(reconnectTimer);
+                        if (stepText) stepText.textContent = 'Panel took longer to restart. Please refresh the page manually.';
+                        showToast('Service restart taking longer than expected. Please refresh page.', 'warning', 7000);
+                    }
+                }
+            }, 2000);
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             fetchGitHubStars();
             setupDropzone();
+            updateLastCheckedDisplay();
         });
     </script>
 </body>
