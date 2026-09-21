@@ -112,14 +112,22 @@
                             <div class="settings-status-text">
                                 <div class="settings-status-title" id="updateStatusTitle">
                                     {% if update_available %}
-                                        New Version Available: <span style="color: var(--accent-yellow, #facc15);">v{{ latest_version }}</span>
+                                        {% if is_newer_commit and latest_commit %}
+                                            New Build Available: <span style="color: var(--accent-yellow, #facc15);">v{{ latest_version }} ({{ latest_commit }})</span>
+                                        {% else %}
+                                            New Version Available: <span style="color: var(--accent-yellow, #facc15);">v{{ latest_version }}</span>
+                                        {% endif %}
                                     {% else %}
-                                        Panel is Up to Date (v{{ app_version }})
+                                        Panel is Up to Date (v{{ app_version }}{% if current_commit %} - {{ current_commit }}{% endif %})
                                     {% endif %}
                                 </div>
                                 <div class="settings-status-desc" id="updateStatusDesc">
                                     {% if update_available %}
-                                        A newer stable release is available for your system. Active VPN connections will not be interrupted during update.
+                                        {% if is_newer_commit and latest_commit %}
+                                            A new build/commit is available for version v{{ latest_version }}. Active VPN connections will not be interrupted.
+                                        {% else %}
+                                            A newer stable release is available for your system. Active VPN connections will not be interrupted during update.
+                                        {% endif %}
                                     {% else %}
                                         You are currently running the latest official stable release.
                                     {% endif %}
@@ -142,11 +150,11 @@
                                             <line x1="12" y1="8" x2="12" y2="12"/>
                                             <line x1="12" y1="16" x2="12.01" y2="16"/>
                                         </svg>
-                                        <span id="updateTargetVersionTitle">IKE-UI v{{ latest_version }}</span>
+                                        <span id="updateTargetVersionTitle">IKE-UI v{{ latest_version }}{% if is_newer_commit and latest_commit %} ({{ latest_commit }}){% endif %}</span>
                                         <span class="settings-badge-cyan">Official Stable</span>
                                     </div>
                                     <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">
-                                        Installed: <code>v{{ app_version }}</code> &rarr; Target: <code>v<span id="updateTargetVersionText">{{ latest_version }}</span></code>
+                                        Installed: <code>v{{ app_version }}{% if current_commit %} ({{ current_commit }}){% endif %}</code> &rarr; Target: <code>v<span id="updateTargetVersionText">{{ latest_version }}{% if is_newer_commit and latest_commit %} ({{ latest_commit }}){% endif %}</span></code>
                                     </div>
                                 </div>
                                 <button type="button" class="btn btn-primary" id="btnOpenUpdateModal" onclick="openUpdateModal()">
@@ -1814,10 +1822,22 @@
 
                 if (data.update_available) {
                     const titleEl = document.getElementById('updateStatusTitle');
-                    if (titleEl) titleEl.innerHTML = `New Version Available: <span style="color: var(--accent-yellow, #facc15);">v${data.latest_version}</span>`;
+                    if (titleEl) {
+                        if (data.is_newer_commit && data.latest_commit) {
+                            titleEl.innerHTML = `New Build Available: <span style="color: var(--accent-yellow, #facc15);">v${data.latest_version} (${data.latest_commit})</span>`;
+                        } else {
+                            titleEl.innerHTML = `New Version Available: <span style="color: var(--accent-yellow, #facc15);">v${data.latest_version}</span>`;
+                        }
+                    }
 
                     const descEl = document.getElementById('updateStatusDesc');
-                    if (descEl) descEl.textContent = 'A newer official stable release is available for your system. Active VPN connections will not be interrupted.';
+                    if (descEl) {
+                        if (data.is_newer_commit) {
+                            descEl.textContent = `A new build/commit for version v${data.latest_version} is available. Active VPN connections will not be interrupted.`;
+                        } else {
+                            descEl.textContent = 'A newer official stable release is available for your system. Active VPN connections will not be interrupted.';
+                        }
+                    }
 
                     const pill = document.getElementById('updateStatusPill');
                     if (pill) {
@@ -1837,14 +1857,15 @@
                     const availSec = document.getElementById('updateAvailableSection');
                     if (availSec) availSec.style.display = 'block';
 
+                    const targetCommitStr = (data.is_newer_commit && data.latest_commit) ? ` (${data.latest_commit})` : '';
                     const targetTitle = document.getElementById('updateTargetVersionTitle');
-                    if (targetTitle) targetTitle.textContent = `IKE-UI v${data.latest_version}`;
+                    if (targetTitle) targetTitle.textContent = `IKE-UI v${data.latest_version}${targetCommitStr}`;
 
                     const targetText = document.getElementById('updateTargetVersionText');
-                    if (targetText) targetText.textContent = data.latest_version;
+                    if (targetText) targetText.textContent = `${data.latest_version}${targetCommitStr}`;
 
                     const modalTarget = document.getElementById('modalTargetVersion');
-                    if (modalTarget) modalTarget.textContent = `v${data.latest_version}`;
+                    if (modalTarget) modalTarget.textContent = `v${data.latest_version}${targetCommitStr}`;
 
                     const notesEl = document.getElementById('updateReleaseNotes');
                     if (notesEl) {
@@ -1856,10 +1877,15 @@
                         }
                     }
 
-                    showToast(`A new stable update (v${data.latest_version}) is available!`, 'warning', 4500);
+                    if (data.is_newer_commit && data.latest_commit) {
+                        showToast(`A new stable build (v${data.latest_version} - ${data.latest_commit}) is available!`, 'warning', 4500);
+                    } else {
+                        showToast(`A new stable update (v${data.latest_version}) is available!`, 'warning', 4500);
+                    }
                 } else {
                     const titleEl = document.getElementById('updateStatusTitle');
-                    if (titleEl) titleEl.textContent = `Panel is Up to Date (v${data.current_version})`;
+                    const curCommitStr = data.current_commit ? ` - ${data.current_commit}` : '';
+                    if (titleEl) titleEl.textContent = `Panel is Up to Date (v${data.current_version}${curCommitStr})`;
 
                     const descEl = document.getElementById('updateStatusDesc');
                     if (descEl) descEl.textContent = 'You are currently running the latest official stable release.';

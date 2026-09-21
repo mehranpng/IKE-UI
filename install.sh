@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.9.2"
+APP_VERSION="1.9.3"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"
@@ -1071,6 +1071,7 @@ update_ike_ui() {
         git remote set-url origin "$REPO_URL" 2>/dev/null || true
         echo -e "${CYAN}[*] Checking for updates from GitHub...${NC}"
         git fetch --all --tags --prune --force
+        git fetch origin "+refs/tags/*:refs/tags/*" --prune --force 2>/dev/null || true
     else
         echo -e "${YELLOW}[*] Initializing Git repository in ${INSTALL_DIR}...${NC}"
         TEMP_CLONE=$(mktemp -d /tmp/ike-ui-clone.XXXXXX)
@@ -1078,6 +1079,7 @@ update_ike_ui() {
         cp -r "$TEMP_CLONE/.git" "$INSTALL_DIR/"
         rm -rf "$TEMP_CLONE"
         git fetch --all --tags --prune --force
+        git fetch origin "+refs/tags/*:refs/tags/*" --prune --force 2>/dev/null || true
         echo -e "${GREEN}[+] Converted to tracked Git repository.${NC}"
     fi
 
@@ -1105,16 +1107,31 @@ update_ike_ui() {
             local latest_tag_clean="${latest_tag#v}"
 
             local has_new_version=0
+            local update_reason="version"
+            local cur_commit=""
+            local tag_commit=""
+
             if [ -n "$latest_tag" ]; then
+                cur_commit=$(git rev-parse HEAD 2>/dev/null || true)
+                tag_commit=$(git rev-parse "${latest_tag}^{commit}" 2>/dev/null || true)
+
                 if is_newer_version "$cur_ver_clean" "$latest_tag_clean"; then
                     has_new_version=1
+                    update_reason="version"
+                elif [ "$cur_ver_clean" = "$latest_tag_clean" ] && [ -n "$tag_commit" ] && [ -n "$cur_commit" ] && [ "$tag_commit" != "$cur_commit" ]; then
+                    has_new_version=1
+                    update_reason="commit"
                 fi
             fi
 
             if [ "$has_new_version" -eq 0 ]; then
                 echo ""
                 echo -e "${YELLOW}[*] No new version exists.${NC}"
-                echo -e "    You are already running the latest version: ${GREEN}${BOLD}v${cur_ver_clean}${NC}"
+                if [ -n "$cur_commit" ]; then
+                    echo -e "    You are already running the latest version: ${GREEN}${BOLD}v${cur_ver_clean}${NC} (${cur_commit:0:7})"
+                else
+                    echo -e "    You are already running the latest version: ${GREEN}${BOLD}v${cur_ver_clean}${NC}"
+                fi
                 echo ""
                 if [ "$auto_confirm" -eq 0 ]; then
                     read -rp "Press Enter to return..." _dummy
@@ -1123,7 +1140,12 @@ update_ike_ui() {
             fi
 
             echo ""
-            echo -e "${GREEN}[+] A new version is available: ${BOLD}${latest_tag}${NC} (Current: ${YELLOW}v${cur_ver_clean}${NC})"
+            if [ "$update_reason" = "commit" ]; then
+                echo -e "${GREEN}[+] A new build is available for version: ${BOLD}${latest_tag}${NC}"
+                echo -e "    Current commit: ${YELLOW}${cur_commit:0:7}${NC} -> Latest build: ${GREEN}${tag_commit:0:7}${NC}"
+            else
+                echo -e "${GREEN}[+] A new version is available: ${BOLD}${latest_tag}${NC} (Current: ${YELLOW}v${cur_ver_clean}${NC})"
+            fi
             if [ "$auto_confirm" -eq 0 ]; then
                 read -rp "Do you want to update to this version? [y/N]: " confirm_update
                 if [[ ! "$confirm_update" =~ ^[yY]([eE][sS])?$ ]]; then

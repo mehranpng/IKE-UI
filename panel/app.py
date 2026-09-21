@@ -67,7 +67,7 @@ def get_persistent_secret_key():
 
 get_secret_key = get_persistent_secret_key
 
-APP_VERSION = "1.9.2"
+APP_VERSION = "1.9.3"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
@@ -502,11 +502,32 @@ def parse_semver(ver_str):
 def is_newer_version(cur_ver, target_ver):
     return parse_semver(target_ver) > parse_semver(cur_ver)
 
+def get_local_commit(install_dir=None):
+    try:
+        if not install_dir:
+            install_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        res = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=install_dir,
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False
+        )
+        if res.returncode == 0:
+            return res.stdout.strip()
+    except Exception:
+        pass
+    return ""
+
 def check_for_updates(force=False):
     """
     Checks GitHub for official stable releases.
     Uses 6-hour cache unless force=True.
+    Checks both semantic version and commit hash to detect new builds of the same version.
     """
+    install_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    current_commit = get_local_commit(install_dir)
     now = int(time.time())
     try:
         last_check = int(get_system_config("last_update_check", "0") or "0")
@@ -517,6 +538,16 @@ def check_for_updates(force=False):
     cached_notes = get_system_config("update_release_notes", "")
     cached_url = get_system_config("update_release_url", "")
     cached_name = get_system_config("update_release_name", "")
+    cached_commit = get_system_config("latest_available_commit", "")
+    cached_is_newer_commit = (get_system_config("is_newer_commit", "0") == "1")
+
+    # If cache says update is available due to newer commit, but local commit is now up to date, clear available flag
+    if cached_avail and cached_is_newer_commit and current_commit and cached_commit:
+        if current_commit == cached_commit and (parse_semver(APP_VERSION) >= parse_semver(cached_ver)):
+            cached_avail = False
+            cached_is_newer_commit = False
+            set_system_config("update_available", "0")
+            set_system_config("is_newer_commit", "0")
 
     if not force and (now - last_check < UPDATE_CACHE_TTL) and last_check > 0:
         return {
@@ -524,7 +555,10 @@ def check_for_updates(force=False):
             "cached": True,
             "current_version": APP_VERSION,
             "latest_version": cached_ver,
+            "current_commit": current_commit[:7] if current_commit else "",
+            "latest_commit": cached_commit[:7] if cached_commit else "",
             "update_available": cached_avail,
+            "is_newer_commit": cached_is_newer_commit,
             "release_name": cached_name,
             "release_notes": cached_notes,
             "html_url": cached_url,
@@ -532,6 +566,7 @@ def check_for_updates(force=False):
         }
 
     latest_tag = None
+    latest_commit = ""
     release_name = ""
     release_notes = ""
     release_url = ""
@@ -557,11 +592,28 @@ def check_for_updates(force=False):
                     release_notes = data.get("body", "")
                     release_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/tag/{tag_raw}")
                     published_at = data.get("published_at", "")
+
+                    # Fetch commit SHA for this release tag from GitHub API
+                    try:
+                        commit_url = f"https://api.github.com/repos/{GITHUB_REPO}/commits/{tag_raw}"
+                        c_req = urllib.request.Request(
+                            commit_url,
+                            headers={
+                                "User-Agent": f"IKE-UI-Panel/{APP_VERSION}",
+                                "Accept": "application/vnd.github.v3+json"
+                            }
+                        )
+                        with urllib.request.urlopen(c_req, timeout=5) as c_resp:
+                            if c_resp.status == 200:
+                                c_data = json.loads(c_resp.read().decode("utf-8"))
+                                latest_commit = c_data.get("sha", "")
+                    except Exception:
+                        pass
     except Exception:
         latest_tag = None
 
-    # 2. Fallback: git ls-remote --tags if GitHub API was unavailable/rate limited
-    if not latest_tag:
+    # 2. Fallback: git ls-remote --tags if GitHub API was unavailable/rate limited or commit not resolved
+    if not latest_tag or not latest_commit:
         try:
             res = subprocess.run(
                 ["git", "ls-remote", "--tags", f"https://github.com/{GITHUB_REPO}.git"],
@@ -571,20 +623,30 @@ def check_for_updates(force=False):
                 check=False
             )
             if res.returncode == 0:
-                tag_matches = re.findall(r'refs/tags/(v?[0-9]+\.[0-9]+(?:\.[0-9]+)?)', res.stdout)
-                if tag_matches:
-                    sorted_tags = sorted(tag_matches, key=lambda t: parse_semver(t), reverse=True)
-                    if sorted_tags:
-                        latest_tag = sorted_tags[0].lstrip("v")
+                tag_commits = {}
+                for line in res.stdout.splitlines():
+                    m = re.search(r'([0-9a-f]{40})\s+refs/tags/(v?[0-9]+\.[0-9]+(?:\.[0-9]+)?)(\^\{\})?', line)
+                    if m:
+                        sha = m.group(1)
+                        t_name = m.group(2).lstrip("v")
+                        is_peeled = bool(m.group(3))
+                        if is_peeled or t_name not in tag_commits:
+                            tag_commits[t_name] = sha
+
+                if tag_commits:
+                    sorted_tags = sorted(tag_commits.keys(), key=lambda t: parse_semver(t), reverse=True)
+                    if not latest_tag and sorted_tags:
+                        latest_tag = sorted_tags[0]
                         release_name = f"Release v{latest_tag}"
                         release_url = f"https://github.com/{GITHUB_REPO}/releases/tag/v{latest_tag}"
+                    if latest_tag and latest_tag in tag_commits and not latest_commit:
+                        latest_commit = tag_commits[latest_tag]
         except Exception:
             pass
 
     # 3. If still not found, check local git tags if in git repository
     if not latest_tag:
         try:
-            install_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             res = subprocess.run(
                 ["git", "tag", "-l"],
                 cwd=install_dir,
@@ -604,24 +666,50 @@ def check_for_updates(force=False):
         except Exception:
             pass
 
+    if latest_tag and not latest_commit:
+        try:
+            res = subprocess.run(
+                ["git", "rev-parse", f"v{latest_tag}^{{commit}}"],
+                cwd=install_dir,
+                capture_output=True,
+                text=True,
+                timeout=3,
+                check=False
+            )
+            if res.returncode == 0:
+                latest_commit = res.stdout.strip()
+        except Exception:
+            pass
+
     if not latest_tag:
         return {
             "success": False,
             "error": "Could not connect to GitHub to check for updates.",
             "current_version": APP_VERSION,
             "latest_version": cached_ver or APP_VERSION,
+            "current_commit": current_commit[:7] if current_commit else "",
+            "latest_commit": cached_commit[:7] if cached_commit else "",
             "update_available": cached_avail,
+            "is_newer_commit": cached_is_newer_commit,
             "release_name": cached_name,
             "release_notes": cached_notes,
             "html_url": cached_url,
             "last_checked": last_check
         }
 
-    has_update = is_newer_version(APP_VERSION, latest_tag)
+    is_newer_ver = is_newer_version(APP_VERSION, latest_tag)
+    same_ver = (parse_semver(APP_VERSION) == parse_semver(latest_tag))
+    is_newer_commit = False
+    if same_ver and current_commit and latest_commit and current_commit != latest_commit:
+        is_newer_commit = True
+
+    has_update = is_newer_ver or is_newer_commit
 
     set_system_config("last_update_check", str(now))
     set_system_config("update_available", "1" if has_update else "0")
     set_system_config("latest_available_version", latest_tag)
+    set_system_config("latest_available_commit", latest_commit or "")
+    set_system_config("is_newer_commit", "1" if is_newer_commit else "0")
     set_system_config("update_release_notes", release_notes)
     set_system_config("update_release_url", release_url)
     set_system_config("update_release_name", release_name)
@@ -631,7 +719,10 @@ def check_for_updates(force=False):
         "cached": False,
         "current_version": APP_VERSION,
         "latest_version": latest_tag,
+        "current_commit": current_commit[:7] if current_commit else "",
+        "latest_commit": latest_commit[:7] if latest_commit else "",
         "update_available": has_update,
+        "is_newer_commit": is_newer_commit,
         "release_name": release_name,
         "release_notes": release_notes,
         "html_url": release_url,
@@ -754,6 +845,7 @@ update_status "running" "fetching" 15 "Fetching latest stable releases from GitH
 cd "$INSTALL_DIR"
 git remote set-url origin "https://github.com/mehranpng/IKE-UI.git" 2>/dev/null || true
 git fetch --all --tags --prune --force
+git fetch origin "+refs/tags/*:refs/tags/*" --prune --force 2>/dev/null || true
 
 LATEST_TAG=$(git tag -l --sort=-v:refname | grep -E '^v?[0-9]+\\.[0-9]+' | head -n 1)
 if [ -z "$LATEST_TAG" ]; then
@@ -3040,6 +3132,7 @@ def api_system_update_trigger():
         "message": "Stable update process initiated in background.",
         "current_version": APP_VERSION,
         "target_version": check_info.get("latest_version"),
+        "target_commit": check_info.get("latest_commit"),
         "status_endpoint": "/api/v1/system/update/status"
     }), 202
 
@@ -3405,6 +3498,9 @@ def settings():
         session_timeout_formatted=session_timeout_formatted,
         update_available=(get_system_config("update_available", "0") == "1"),
         latest_version=get_system_config("latest_available_version", APP_VERSION),
+        is_newer_commit=(get_system_config("is_newer_commit", "0") == "1"),
+        latest_commit=get_system_config("latest_available_commit", "")[:7],
+        current_commit=get_local_commit()[:7],
         last_update_check=int(get_system_config("last_update_check", "0") or "0"),
         update_release_notes=get_system_config("update_release_notes", ""),
         update_release_name=get_system_config("update_release_name", ""),
@@ -3441,7 +3537,8 @@ def settings_update_start():
         "success": True,
         "message": "Update process initiated.",
         "current_version": APP_VERSION,
-        "target_version": check_info.get("latest_version")
+        "target_version": check_info.get("latest_version"),
+        "target_commit": check_info.get("latest_commit")
     })
 
 @app.route("/settings/update/status", methods=["GET"])
