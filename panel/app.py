@@ -67,7 +67,7 @@ def get_persistent_secret_key():
 
 get_secret_key = get_persistent_secret_key
 
-APP_VERSION = "1.9.0"
+APP_VERSION = "1.9.1"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
@@ -2894,7 +2894,6 @@ def public_api_stats():
         "success": True,
         "version": APP_VERSION,
         "stats": {
-            "version": APP_VERSION,
             "total_accounts": int(row["total_accounts"] or 0) if row else 0,
             "active_users": int(row["active_users"] or 0) if row else 0,
             "online_users": online_users,

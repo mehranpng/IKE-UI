@@ -3192,3 +3192,43 @@ input.input-error:focus {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
+
+.update-meta-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding: 0.85rem 1.15rem;
+    background: #0f111a;
+    border: 1.5px solid var(--border-dark);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-xs);
+    margin-top: 0.25rem;
+}
+
+.update-meta-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.update-meta-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.update-meta-time {
+    font-size: 0.82rem;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.update-meta-right {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.76rem;
+    color: var(--text-muted);
+}

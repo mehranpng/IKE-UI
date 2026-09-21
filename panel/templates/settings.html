@@ -182,22 +182,20 @@
                         <div class="update-log-terminal" id="updateLogTerminal">Connecting to update worker...</div>
                     </div>
 
-                    <div class="settings-row" style="border-bottom: none; padding-bottom: 0;">
-                        <div class="settings-row-info">
-                            <div class="settings-row-label">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-secondary);">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <polyline points="12 6 12 12 16 14"/>
-                                </svg>
-                                <span class="settings-row-title" style="font-size: 0.82rem;">Last Checked</span>
-                            </div>
-                            <div class="settings-row-desc" id="updateLastCheckedDesc" style="font-size: 0.8rem;">
-                                {% if last_update_check > 0 %}
-                                    <span id="updateLastCheckedTime" data-timestamp="{{ last_update_check }}">Checking...</span>
-                                {% else %}
-                                    Not checked yet
-                                {% endif %}
-                            </div>
+                    <div class="update-meta-footer">
+                        <div class="update-meta-left">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-secondary); flex-shrink: 0;">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                            <span class="update-meta-label">Last Checked:</span>
+                            <span id="updateLastCheckedTime" class="update-meta-time" data-timestamp="{{ last_update_check }}">
+                                {% if last_update_check > 0 %}Checking...{% else %}Not checked yet{% endif %}
+                            </span>
+                        </div>
+                        <div class="update-meta-right">
+                            <span>Update Channel:</span>
+                            <span class="settings-badge-cyan" style="font-size: 0.72rem; padding: 2px 7px;">Official Stable</span>
                         </div>
                     </div>
 
