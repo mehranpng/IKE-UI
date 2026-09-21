@@ -260,6 +260,69 @@
                         </div>
                     </div>
 
+                    <div class="settings-row" id="apiStatsRow">
+                        <div class="settings-row-info" style="width: 100%;">
+                            <div class="settings-row-label" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--success, #00f59b);">
+                                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                                    </svg>
+                                    <span class="settings-row-title">API Request Statistics</span>
+                                    <span class="settings-badge-cyan">Live Usage</span>
+                                </div>
+                                <button type="button" class="btn-preset" id="btnRefreshApiStats" onclick="refreshApiStats(this)" title="Refresh API Statistics" style="display: inline-flex; align-items: center; gap: 5px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="refreshApiStatsIcon">
+                                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                                    </svg>
+                                    <span>Refresh</span>
+                                </button>
+                            </div>
+                            <div class="settings-row-desc" style="margin-bottom: 0.85rem;">
+                                Aggregate count of incoming requests to the REST API across active timeframes.
+                            </div>
+
+                            <div class="api-stats-grid">
+                                <div class="api-stat-item">
+                                    <div class="api-stat-header">
+                                        <span class="api-stat-label">This Month</span>
+                                        <span class="api-stat-dot" style="background: var(--primary, #7452ff);"></span>
+                                    </div>
+                                    <div class="api-stat-val" id="apiStatCurrentMonth">{{ "{:,}".format(api_stats.current_month) if api_stats else 0 }}</div>
+                                    <div class="api-stat-sub">Current month</div>
+                                </div>
+
+                                <div class="api-stat-item">
+                                    <div class="api-stat-header">
+                                        <span class="api-stat-label">Past 7 Days</span>
+                                        <span class="api-stat-dot" style="background: var(--accent-cyan, #00f0ff);"></span>
+                                    </div>
+                                    <div class="api-stat-val" id="apiStatPast7Days">{{ "{:,}".format(api_stats.past_7_days) if api_stats else 0 }}</div>
+                                    <div class="api-stat-sub">Last 7 days</div>
+                                </div>
+
+                                <div class="api-stat-item">
+                                    <div class="api-stat-header">
+                                        <span class="api-stat-label">Today</span>
+                                        <span class="api-stat-dot" style="background: var(--accent-yellow, #ffd000);"></span>
+                                    </div>
+                                    <div class="api-stat-val" id="apiStatToday">{{ "{:,}".format(api_stats.today) if api_stats else 0 }}</div>
+                                    <div class="api-stat-sub">Since 00:00</div>
+                                </div>
+
+                                <div class="api-stat-item">
+                                    <div class="api-stat-header">
+                                        <span class="api-stat-label">Past 1 Hour</span>
+                                        <span class="api-stat-dot" style="background: var(--success, #00f59b);"></span>
+                                    </div>
+                                    <div class="api-stat-val" id="apiStatPast1Hour">{{ "{:,}".format(api_stats.past_1_hour) if api_stats else 0 }}</div>
+                                    <div class="api-stat-sub">Last 60 mins</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="api-doc-actions" style="margin-top: 0.25rem;">
                         <a class="btn btn-secondary" href="{{ url_for('api_docs') }}" target="_blank" rel="noopener">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -875,6 +938,45 @@
                 showToast('API base URL copied!', 'success', 2000);
             } catch (error) {
                 showToast('Could not copy the API base URL.', 'error');
+            }
+        }
+
+        async function refreshApiStats(btn) {
+            const icon = document.getElementById('refreshApiStatsIcon');
+            if (icon) icon.classList.add('spin-icon');
+            if (btn) btn.disabled = true;
+
+            try {
+                const response = await fetch(`${BASE_PATH}/settings/api-stats`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                });
+                const result = await response.json();
+                if (response.ok && result.success && result.stats) {
+                    const elMonth = document.getElementById('apiStatCurrentMonth');
+                    const elWeek = document.getElementById('apiStatPast7Days');
+                    const elToday = document.getElementById('apiStatToday');
+                    const elHour = document.getElementById('apiStatPast1Hour');
+                    if (elMonth) elMonth.textContent = Number(result.stats.current_month || 0).toLocaleString();
+                    if (elWeek) elWeek.textContent = Number(result.stats.past_7_days || 0).toLocaleString();
+                    if (elToday) elToday.textContent = Number(result.stats.today || 0).toLocaleString();
+                    if (elHour) elHour.textContent = Number(result.stats.past_1_hour || 0).toLocaleString();
+                    showToast('API statistics refreshed', 'success', 2000);
+                } else {
+                    showToast((result && result.error) ? result.error : 'Could not fetch API statistics.', 'error');
+                }
+            } catch (err) {
+                console.error('Error refreshing API stats:', err);
+                showToast('Failed to refresh API statistics.', 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+                if (icon) {
+                    setTimeout(() => {
+                        icon.classList.remove('spin-icon');
+                    }, 400);
+                }
             }
         }
 

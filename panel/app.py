@@ -67,7 +67,7 @@ def get_persistent_secret_key():
 
 get_secret_key = get_persistent_secret_key
 
-APP_VERSION = "1.9.1"
+APP_VERSION = "1.9.2"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
@@ -930,6 +930,14 @@ def init_db():
         )
         """)
 
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS api_request_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp REAL NOT NULL
+        )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_api_request_logs_timestamp ON api_request_logs (timestamp)")
+
         cursor.execute("UPDATE users SET max_devices = 10 WHERE max_devices IS NULL OR max_devices <= 0 OR max_devices > 10")
 
         cursor.execute("SELECT COUNT(*) as cnt FROM admin")
@@ -1412,6 +1420,7 @@ accounting_startup_pending = True
 
 def accounting_daemon():
     global last_seen_child_bytes, accounting_state_loaded, accounting_startup_pending
+    last_api_daemon_prune_time = 0
     while not shutdown_event.is_set():
         try:
             vpn_enabled = (get_system_config("vpn_enabled", "1") == "1")
@@ -1503,6 +1512,10 @@ def accounting_daemon():
                 expired_keys = [k for k, v in last_seen_child_bytes.items() if v.get("last_seen", 0) < cutoff_ts]
                 for k in expired_keys:
                     del last_seen_child_bytes[k]
+
+            if now_ts - last_api_daemon_prune_time > 300:
+                last_api_daemon_prune_time = now_ts
+                prune_api_request_logs()
 
             conn.commit()
 
@@ -2770,6 +2783,88 @@ def reset_user_traffic(user_id):
         flash("User not found!", "danger")
     return redirect(url_for("dashboard"))
 
+_last_api_prune_time = 0
+
+def prune_api_request_logs():
+    """Delete API request logs that fall outside the active statistical observation windows
+    (older than the current calendar month and older than 7 days) to prevent DB accumulation."""
+    global _last_api_prune_time
+    try:
+        now_dt = datetime.datetime.now()
+        month_start_ts = now_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp()
+        seven_days_ts = (now_dt - datetime.timedelta(days=7)).timestamp()
+        cutoff_ts = min(month_start_ts, seven_days_ts)
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM api_request_logs WHERE timestamp < ?", (cutoff_ts,))
+        conn.commit()
+        conn.close()
+        _last_api_prune_time = time.time()
+    except Exception as e:
+        print(f"[!] Error pruning API request logs: {e}", file=sys.stderr)
+
+def record_api_request():
+    """Record an incoming API request timestamp and periodically prune stale records."""
+    global _last_api_prune_time
+    try:
+        now_ts = time.time()
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO api_request_logs (timestamp) VALUES (?)", (now_ts,))
+        conn.commit()
+        conn.close()
+
+        if time.time() - _last_api_prune_time > 600:
+            prune_api_request_logs()
+    except Exception as e:
+        print(f"[!] Error recording API request: {e}", file=sys.stderr)
+
+def get_api_request_stats():
+    """Calculate the 4 API request metrics across observation windows."""
+    prune_api_request_logs()
+    now_dt = datetime.datetime.now()
+    one_hour_ts = (now_dt - datetime.timedelta(hours=1)).timestamp()
+    today_start_ts = now_dt.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    seven_days_ts = (now_dt - datetime.timedelta(days=7)).timestamp()
+    month_start_ts = now_dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp()
+
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT
+                COUNT(CASE WHEN timestamp >= ? THEN 1 END) AS past_1_hour,
+                COUNT(CASE WHEN timestamp >= ? THEN 1 END) AS today,
+                COUNT(CASE WHEN timestamp >= ? THEN 1 END) AS past_7_days,
+                COUNT(CASE WHEN timestamp >= ? THEN 1 END) AS current_month
+            FROM api_request_logs
+        """, (one_hour_ts, today_start_ts, seven_days_ts, month_start_ts))
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            return {
+                "past_1_hour": int(row["past_1_hour"] or 0),
+                "today": int(row["today"] or 0),
+                "past_7_days": int(row["past_7_days"] or 0),
+                "current_month": int(row["current_month"] or 0),
+            }
+    except Exception as e:
+        print(f"[!] Error retrieving API stats: {e}", file=sys.stderr)
+
+    return {
+        "past_1_hour": 0,
+        "today": 0,
+        "past_7_days": 0,
+        "current_month": 0,
+    }
+
+@app.before_request
+def track_api_request():
+    if request.path.startswith("/api/v1") and not request.path.startswith("/api/v1/docs"):
+        record_api_request()
+
 def api_error(message, status=400):
     return jsonify({"success": False, "error": message}), status
 
@@ -3305,6 +3400,7 @@ def settings():
         api_key_created=bool(api_key_hash),
         api_key_mask=get_system_config("api_key_display", "") if api_key_hash else "",
         api_base_url=get_api_base_url(),
+        api_stats=get_api_request_stats(),
         session_timeout=session_timeout,
         session_timeout_formatted=session_timeout_formatted,
         update_available=(get_system_config("update_available", "0") == "1"),
@@ -3353,6 +3449,11 @@ def settings_update_start():
 def settings_update_status():
     status = get_update_status()
     return jsonify({"success": True, **status})
+
+@app.route("/settings/api-stats", methods=["GET"])
+@login_required
+def settings_api_stats():
+    return jsonify({"success": True, "stats": get_api_request_stats()})
 
 @app.route("/settings/create-api-key", methods=["POST"])
 @login_required
