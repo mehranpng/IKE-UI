@@ -38,7 +38,7 @@ def generate_random_pwd(length=8):
     alphabet = string.ascii_letters + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(length))
 
-def get_secret_key():
+def get_persistent_secret_key():
     key_candidates = [
         SECRET_KEY_PATH,
         os.path.join(BASE_DIR, "secret.key"),
@@ -64,6 +64,8 @@ def get_secret_key():
         except Exception:
             continue
     return new_key
+
+get_secret_key = get_persistent_secret_key
 
 APP_VERSION = "1.9.0"
 
