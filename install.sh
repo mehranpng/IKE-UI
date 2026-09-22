@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.9.3"
+APP_VERSION="1.9.4"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"
@@ -946,6 +946,7 @@ Environment="SERVER_DOMAIN=${DOMAIN}"
 Environment="DB_PATH=${DB_PATH}"
 Environment="SECRETS_PATH=${SECRETS_PATH}"
 Environment="SECRET_KEY_PATH=${SECRET_KEY_PATH}"
+Environment="HOME=${INSTALL_DIR}"
 ExecStart=${INSTALL_DIR}/venv/bin/gunicorn --workers 2 --threads 8 --worker-class gthread --worker-connections 1000 --timeout 30 --graceful-timeout 2 -b 127.0.0.1:8000 app:app
 Restart=always
 RestartSec=3
@@ -1312,6 +1313,9 @@ RENEW_EOF
 
     if [ -f /etc/systemd/system/ike-ui.service ]; then
         sed -i 's|gunicorn .* app:app|gunicorn --workers 2 --threads 8 --worker-class gthread --worker-connections 1000 --timeout 30 --graceful-timeout 2 -b 127.0.0.1:8000 app:app|g' /etc/systemd/system/ike-ui.service
+        if ! grep -q "Environment=\"HOME=" /etc/systemd/system/ike-ui.service; then
+            sed -i '/SECRET_KEY_PATH=/a Environment="HOME=/opt/ike-ui"' /etc/systemd/system/ike-ui.service
+        fi
         if ! grep -q "TimeoutStopSec=" /etc/systemd/system/ike-ui.service; then
             sed -i '/RestartSec=/a TimeoutStopSec=5s' /etc/systemd/system/ike-ui.service
         fi

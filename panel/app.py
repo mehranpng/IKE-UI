@@ -67,7 +67,7 @@ def get_persistent_secret_key():
 
 get_secret_key = get_persistent_secret_key
 
-APP_VERSION = "1.9.3"
+APP_VERSION = "1.9.4"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
@@ -1120,17 +1120,44 @@ def disconnect_excess_sas(username, max_devices, online_dict=None):
     except Exception as e:
         print(f"[!] Error disconnecting excess SAs for {username}: {e}", file=sys.stderr)
 
+def _write_secrets_file(path, content):
+    parent_dir = os.path.dirname(os.path.abspath(path))
+    written = False
+    if os.access(parent_dir, os.W_OK):
+        try:
+            temp_file = f"{path}.tmp"
+            with open(temp_file, "w") as f:
+                f.write(content)
+            os.chmod(temp_file, 0o600)
+            os.replace(temp_file, path)
+            written = True
+        except (OSError, PermissionError):
+            written = False
+
+    if not written:
+        with open(path, "w") as f:
+            try:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            except Exception:
+                pass
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+            try:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            except Exception:
+                pass
+        try:
+            os.chmod(path, 0o600)
+        except Exception:
+            pass
+
 def sync_ipsec_secrets():
     with sync_lock:
         try:
             vpn_enabled = (get_system_config("vpn_enabled", "1") == "1")
             if not vpn_enabled:
-                os.makedirs(os.path.dirname(os.path.abspath(SECRETS_PATH)), exist_ok=True)
-                temp_secrets = f"{SECRETS_PATH}.tmp"
-                with open(temp_secrets, "w") as f:
-                    f.write(": RSA privkey.pem\n")
-                os.chmod(temp_secrets, 0o600)
-                os.replace(temp_secrets, SECRETS_PATH)
+                _write_secrets_file(SECRETS_PATH, ": RSA privkey.pem\n")
                 subprocess.run(["ipsec", "rereadsecrets"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 return
 
@@ -1162,12 +1189,7 @@ def sync_ipsec_secrets():
                     clean_uname = re.sub(r'[\r\n\x00]', '', str(u["username"])).replace('\\', '\\\\').replace('"', '\\"')
                     active_lines.append(f'"{clean_uname}" : EAP "{clean_pwd}"')
 
-            os.makedirs(os.path.dirname(os.path.abspath(SECRETS_PATH)), exist_ok=True)
-            temp_secrets = f"{SECRETS_PATH}.tmp"
-            with open(temp_secrets, "w") as f:
-                f.write("\n".join(active_lines) + "\n")
-            os.chmod(temp_secrets, 0o600)
-            os.replace(temp_secrets, SECRETS_PATH)
+            _write_secrets_file(SECRETS_PATH, "\n".join(active_lines) + "\n")
 
             subprocess.run(["ipsec", "rereadsecrets"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as e:
@@ -1605,11 +1627,11 @@ def accounting_daemon():
                 for k in expired_keys:
                     del last_seen_child_bytes[k]
 
+            conn.commit()
+
             if now_ts - last_api_daemon_prune_time > 300:
                 last_api_daemon_prune_time = now_ts
                 prune_api_request_logs()
-
-            conn.commit()
 
             last_seen_child_bytes.update(current_state)
             accounting_startup_pending = False
