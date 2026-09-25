@@ -1928,12 +1928,35 @@ body.modal-open {
     box-shadow: var(--shadow-xl);
     width: 100%;
     max-width: 480px;
-    max-height: calc(100vh - 2.5rem);
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     margin: auto;
     animation: modalAppear 0.15s ease-out;
+}
+
+#addFormView,
+#editFormView,
+#addSuccessView,
+#editSuccessView {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: 100%;
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
+#addUserForm,
+#editUserForm {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: 100%;
+    flex: 1 1 auto;
+    overflow: hidden;
 }
 
 @keyframes modalAppear {
@@ -1982,7 +2005,9 @@ body.modal-open {
 .modal-body {
     padding: 1.5rem;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     flex: 1 1 auto;
+    min-height: 0;
 }
 
 .modal-footer {
@@ -1992,6 +2017,10 @@ body.modal-open {
     display: flex;
     justify-content: flex-end;
     gap: 0.75rem;
+    flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
 }
 
 .form-group {
@@ -2526,7 +2555,11 @@ input.input-error:focus {
         padding: 1.25rem 1rem;
     }
     .modal {
-        padding: 0.75rem;
+        padding: 0.75rem 0.5rem;
+    }
+    .modal-content {
+        max-height: calc(100vh - 1.5rem);
+        max-height: calc(100dvh - 1.5rem);
     }
     .modal-body {
         padding: 1.25rem 1rem;
@@ -3185,9 +3218,10 @@ input.input-error:focus {
 }
 
 .update-progress-container {
-    background: rgba(15, 23, 42, 0.8);
-    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    background: var(--bg-card);
+    border: var(--border-width) solid var(--border-dark);
     border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
     padding: 1.15rem;
     margin-top: 0.75rem;
 }
@@ -3195,18 +3229,20 @@ input.input-error:focus {
 .update-progress-bar-wrap {
     width: 100%;
     height: 8px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 4px;
+    background: #0f111a;
+    border: 1.5px solid var(--border-dark);
+    border-radius: var(--radius-sm);
     overflow: hidden;
     margin: 0.75rem 0;
+    box-shadow: 1px 1px 0px #000000;
 }
 
 .update-progress-bar-fill {
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, var(--accent-cyan, #06b6d4), var(--accent-purple, #a855f7));
-    border-radius: 4px;
-    transition: width 0.4s ease;
+    background: var(--primary);
+    border-radius: 2px;
+    transition: width 0.3s ease;
 }
 
 .update-log-terminal {

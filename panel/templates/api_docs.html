@@ -77,7 +77,6 @@
                     <li><a href="#endpoint-ping" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /ping</a></li>
                     <li><a href="#endpoint-update-check" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /system/update/check</a></li>
                     <li><a href="#endpoint-update-trigger" class="api-doc-nav-link"><span class="badge-method badge-method-post" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">POST</span> /system/update</a></li>
-                    <li><a href="#endpoint-update-status" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /system/update/status</a></li>
                 </ul>
             </div>
 
@@ -90,7 +89,6 @@
                     <li><a href="#endpoint-list-users" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /users</a></li>
                     <li><a href="#endpoint-create-user" class="api-doc-nav-link"><span class="badge-method badge-method-post" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">POST</span> /users</a></li>
                     <li><a href="#endpoint-get-user" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /users/{id}</a></li>
-                    <li><a href="#endpoint-check-username" class="api-doc-nav-link"><span class="badge-method badge-method-get" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">GET</span> /users/check-username</a></li>
                     <li><a href="#endpoint-edit-user" class="api-doc-nav-link"><span class="badge-method badge-method-patch" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">PATCH</span> /users/{id}</a></li>
                     <li><a href="#endpoint-change-password" class="api-doc-nav-link"><span class="badge-method badge-method-post" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">POST</span> /users/{id}/pwd</a></li>
                     <li><a href="#endpoint-toggle-status" class="api-doc-nav-link"><span class="badge-method badge-method-post" style="min-width: 42px; font-size: 0.65rem; padding: 1px 4px;">POST</span> /users/{id}/status</a></li>
@@ -183,7 +181,7 @@
                     </div>
                     <pre><code>{
   "success": true,
-  "version": "1.9.3",
+  "version": ""1.9.4,
   "stats": {
     "total_accounts": 12,
     "active_users": 10,
@@ -291,14 +289,14 @@
   "success": true,
   "cached": false,
   "current_version": "1.9.3",
-  "latest_version": "1.9.3",
+  "latest_version": "1.9.4",
   "current_commit": "4928a96",
   "latest_commit": "c3d2e1a",
   "update_available": true,
   "is_newer_commit": true,
-  "release_name": "IKE-UI v1.9.3 Release",
+  "release_name": "IKE-UI v1.9.4 Release",
   "release_notes": "Official stable release notes and fixes.",
-  "html_url": "https://github.com/mehranpng/IKE-UI/releases/tag/v1.9.3",
+  "html_url": "https://github.com/mehranpng/IKE-UI/releases/tag/v1.9.4",
   "last_checked": 1726930000
 }</code></pre>
                 </div>
@@ -333,47 +331,8 @@
   "success": true,
   "message": "Stable update process initiated in background.",
   "current_version": "1.9.3",
-  "target_version": "1.9.3",
-  "target_commit": "c3d2e1a",
-  "status_endpoint": "/api/v1/system/update/status"
-}</code></pre>
-                </div>
-            </section>
-
-            <!-- System & Updates: GET /system/update/status -->
-            <section class="api-endpoint-card" id="endpoint-update-status">
-                <div class="api-endpoint-header">
-                    <div class="api-endpoint-route">
-                        <span class="badge-method badge-method-get">GET</span>
-                        <span class="api-endpoint-path">/system/update/status</span>
-                    </div>
-                    <span class="settings-badge-cyan">Update Progress &amp; Logs</span>
-                </div>
-                <p>Polls progress percentage, current step info, error details, and recent log output of an ongoing or completed update.</p>
-
-                <div class="api-code-box">
-                    <div class="api-code-header">
-                        <span>cURL Request</span>
-                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                    </div>
-                    <pre><code>curl -s '{{ api_base_url }}/system/update/status' \
-  -H 'X-API-Key: sk-your-key'</code></pre>
-                </div>
-
-                <div class="api-code-box">
-                    <div class="api-code-header">
-                        <span>Response 200 OK</span>
-                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                    </div>
-                    <pre><code>{
-  "success": true,
-  "status": "running",
-  "step": "dependencies",
-  "progress": 60,
-  "message": "Updating Python dependencies...",
-  "error": null,
-  "timestamp": 1726930045,
-  "log": "..."
+  "target_version": "1.9.4",
+  "target_commit": "c3d2e1a"
 }</code></pre>
                 </div>
             </section>
@@ -602,74 +561,6 @@
     "note": "Office User",
     "portal_url": "{{ portal_base_url }}/sub?u=bob"
   }
-}</code></pre>
-                </div>
-            </section>
-
-            <!-- User Management: GET /users/check-username -->
-            <section class="api-endpoint-card" id="endpoint-check-username">
-                <div class="api-endpoint-header">
-                    <div class="api-endpoint-route">
-                        <span class="badge-method badge-method-get">GET</span>
-                        <span class="api-endpoint-path">/users/check-username</span>
-                    </div>
-                    <span class="settings-badge-cyan">Check Username Availability</span>
-                </div>
-                <p>Verifies whether a desired username is available or already in use. Case-insensitive lookup.</p>
-
-                <div class="api-param-table-wrap">
-                    <table class="api-param-table">
-                        <thead>
-                            <tr>
-                                <th>Query Parameter</th>
-                                <th>Type</th>
-                                <th>Required</th>
-                                <th>Description</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="api-param-name">username</td>
-                                <td class="api-param-type">string</td>
-                                <td><span class="badge-req badge-req-yes">Required</span></td>
-                                <td class="api-param-desc">The username to check for availability. Can also be supplied directly in path: <code>/users/check-username/{username}</code>.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="api-code-box">
-                    <div class="api-code-header">
-                        <span>cURL Request</span>
-                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Command"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                    </div>
-                    <pre><code>curl -s '{{ api_base_url }}/users/check-username?username=alice' \
-  -H 'X-API-Key: sk-your-key'</code></pre>
-                </div>
-
-                <div class="api-code-box">
-                    <div class="api-code-header">
-                        <span>Response 200 OK (Available)</span>
-                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                    </div>
-                    <pre><code>{
-  "success": true,
-  "username": "alice",
-  "available": true,
-  "message": "Username is available."
-}</code></pre>
-                </div>
-
-                <div class="api-code-box">
-                    <div class="api-code-header">
-                        <span>Response 200 OK (Already Taken)</span>
-                        <button type="button" class="btn btn-secondary btn-icon api-code-copy-btn" onclick="copyDocSnippet(this.closest('.api-code-box').querySelector('code').textContent, this)" title="Copy Response"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                    </div>
-                    <pre><code>{
-  "success": true,
-  "username": "alice",
-  "available": false,
-  "message": "Username is already taken."
 }</code></pre>
                 </div>
             </section>

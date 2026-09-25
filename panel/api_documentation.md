@@ -35,7 +35,6 @@ The full `sk-` key is shown only once when an administrator creates it. Store it
 | GET | `/users` | List users. Query: `q`, `page`, `per_page`. |
 | POST | `/users` | Create a user. |
 | GET | `/users/{id}` | Get one user. |
-| GET | `/users/check-username` | Check if a username is available or already in use. Query: `username`. |
 | PATCH / PUT | `/users/{id}` | Edit user fields. |
 | POST | `/users/{id}/password` | Change password. |
 | POST | `/users/{id}/status` | Enable or disable a user. |
@@ -45,7 +44,6 @@ The full `sk-` key is shown only once when an administrator creates it. Store it
 | POST | `/restore/users` | Restore user accounts from an SQLite database backup file. |
 | GET | `/system/update/check` | Check GitHub for official stable releases. Query: `force`. |
 | POST | `/system/update` | Trigger background update to the latest official stable release. |
-| GET | `/system/update/status` | Get progress, step info, and live execution logs of ongoing update. |
 
 ## Dashboard statistics
 
@@ -59,7 +57,7 @@ Example response:
 ```json
 {
   "success": true,
-  "version": "1.9.3",
+  "version": "1.9.4",
   "stats": {
     "total_accounts": 11,
     "active_users": 11,
@@ -176,44 +174,6 @@ Example list response:
     "total_items": 1,
     "total_pages": 1
   }
-}
-```
-
-## Check username availability
-
-Check whether a desired username is available or already taken:
-
-```bash
-curl 'https://your-domain.example/api/v1/users/check-username?username=alice' \
-  -H 'X-API-Key: sk-your-key'
-```
-
-Alternatively via path parameter:
-
-```bash
-curl 'https://your-domain.example/api/v1/users/check-username/alice' \
-  -H 'X-API-Key: sk-your-key'
-```
-
-Example response when available:
-
-```json
-{
-  "success": true,
-  "username": "alice",
-  "available": true,
-  "message": "Username is available."
-}
-```
-
-Example response when already in use:
-
-```json
-{
-  "success": true,
-  "username": "alice",
-  "available": false,
-  "message": "Username is already taken."
 }
 ```
 
@@ -341,14 +301,14 @@ Example response:
   "success": true,
   "cached": false,
   "current_version": "1.9.3",
-  "latest_version": "1.9.3",
+  "latest_version": "1.9.4",
   "current_commit": "4928a96",
   "latest_commit": "c3d2e1a",
   "update_available": true,
   "is_newer_commit": true,
-  "release_name": "IKE-UI v1.9.3 Release",
+  "release_name": "IKE-UI v1.9.4 Release",
   "release_notes": "Official stable release notes and fixes.",
-  "html_url": "https://github.com/mehranpng/IKE-UI/releases/tag/v1.9.3",
+  "html_url": "https://github.com/mehranpng/IKE-UI/releases/tag/v1.9.4",
   "last_checked": 1726930000
 }
 ```
@@ -369,33 +329,8 @@ Example response (HTTP 202 Accepted):
   "success": true,
   "message": "Stable update process initiated in background.",
   "current_version": "1.9.3",
-  "target_version": "1.9.3",
-  "target_commit": "c3d2e1a",
-  "status_endpoint": "/api/v1/system/update/status"
-}
-```
-
-### Update status
-
-Polls the progress of an ongoing or recently completed update.
-
-```bash
-curl 'https://your-domain.example/api/v1/system/update/status' \
-  -H 'X-API-Key: sk-your-key'
-```
-
-Example response:
-
-```json
-{
-  "success": true,
-  "status": "running",
-  "step": "dependencies",
-  "progress": 60,
-  "message": "Updating Python dependencies...",
-  "error": null,
-  "timestamp": 1726930045,
-  "log": "..."
+  "target_version": "1.9.4",
+  "target_commit": "c3d2e1a"
 }
 ```
 

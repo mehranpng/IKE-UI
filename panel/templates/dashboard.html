@@ -1099,7 +1099,7 @@
         }
 
         function openAddModal() {
-            document.getElementById('addFormView').style.display = 'block';
+            document.getElementById('addFormView').style.display = 'flex';
             document.getElementById('addSuccessView').style.display = 'none';
             document.getElementById('addUserForm').reset();
             clearAllErrors('#addUserForm');
@@ -1140,7 +1140,7 @@
             document.getElementById('editNote').value = note || '';
             clearAllErrors('#editUserForm');
 
-            document.getElementById('editFormView').style.display = 'block';
+            document.getElementById('editFormView').style.display = 'flex';
             document.getElementById('editSuccessView').style.display = 'none';
             document.getElementById('editModal').style.display = 'flex';
             document.body.classList.add('modal-open');
@@ -2028,7 +2028,7 @@
                     if (elActive) elActive.innerText = parseInt(elActive.innerText || '0') + 1;
 
                     document.getElementById('addFormView').style.display = 'none';
-                    document.getElementById('addSuccessView').style.display = 'block';
+                    document.getElementById('addSuccessView').style.display = 'flex';
                     showToast('User created successfully!', 'success');
                 } else {
                     showToast(res.error || 'Failed to create user', 'error');
@@ -2101,7 +2101,7 @@
                         if (editSubLinkEl) editSubLinkEl.innerText = getUserSubLink(res.username);
 
                         document.getElementById('editFormView').style.display = 'none';
-                        document.getElementById('editSuccessView').style.display = 'block';
+                        document.getElementById('editSuccessView').style.display = 'flex';
                         showToast('Password updated successfully!', 'success');
                     } else {
                         closeEditModal();

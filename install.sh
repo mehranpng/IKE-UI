@@ -1216,6 +1216,9 @@ import sys
 sys.path.insert(0, '${INSTALL_DIR}/panel')
 import app
 app.init_db()
+app.set_system_config('update_available', '0')
+app.set_system_config('is_newer_commit', '0')
+app.set_system_config('last_update_check', '0')
 "
     echo -e "${GREEN}[+] Database schema verified and updated.${NC}"
 
@@ -1841,26 +1844,11 @@ manage_domain_ssl() {
 uninstall_all() {
     show_banner
     echo -e "${RED}${BOLD}[!] WARNING: You are about to uninstall IKE-UI!${NC}"
+    echo -e "    ${RED}All IKE-UI files, services, and user database will be permanently deleted.${NC}"
     echo ""
-    read -rp "Are you sure you want to proceed with uninstallation? [y/N]: " confirm
+    read -rp "Are you sure you want to completely uninstall IKE-UI? [y/N]: " confirm
     if [[ ! "$confirm" =~ ^[yY]([eE][sS])?$ ]]; then
         echo -e "${YELLOW}Uninstallation cancelled.${NC}"
-        return
-    fi
-
-    echo ""
-    read -rp "Do you want to delete user database & credentials (/etc/strongswan-panel)? [y/N]: " del_db
-
-    echo ""
-    echo -e "${RED}${BOLD}[!] Final Confirmation:${NC}"
-    if [[ "$del_db" =~ ^[yY]([eE][sS])?$ ]]; then
-        echo -e "    ${RED}WARNING: All IKE-UI files, services, and user database will be permanently deleted.${NC}"
-    else
-        echo -e "    ${YELLOW}All IKE-UI services and files will be removed. Database will be preserved at ${DB_DIR}.${NC}"
-    fi
-    read -rp "Are you completely sure you want to execute uninstallation now? [y/N]: " confirm_final_uninstall
-    if [[ ! "$confirm_final_uninstall" =~ ^[yY]([eE][sS])?$ ]]; then
-        echo -e "${YELLOW}[*] Uninstallation cancelled.${NC}"
         return 0 2>/dev/null || exit 0
     fi
 
@@ -1881,14 +1869,9 @@ uninstall_all() {
 
     rm -rf "$INSTALL_DIR"
     rm -f "$BIN_PATH" "$ALT_BIN_PATH"
+    rm -rf "$DB_DIR"
 
-    if [[ "$del_db" =~ ^[yY]([eE][sS])?$ ]]; then
-        rm -rf "$DB_DIR"
-        echo -e "${YELLOW}[*] Database and credentials removed.${NC}"
-    else
-        echo -e "${GREEN}[*] Database preserved at ${DB_DIR}.${NC}"
-    fi
-
+    echo -e "${YELLOW}[*] Database and credentials removed.${NC}"
     echo -e "${GREEN}${BOLD}[+] IKE-UI has been completely uninstalled.${NC}"
     exit 0
 }

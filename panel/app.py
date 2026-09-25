@@ -199,13 +199,32 @@ def inject_globals():
         session_timeout = max(1, min(43200, session_timeout))
     except (ValueError, TypeError):
         session_timeout = 4320
+
+    cached_avail = (get_system_config("update_available", "0") == "1")
+    latest_ver = get_system_config("latest_available_version", APP_VERSION)
+    cached_is_newer_commit = (get_system_config("is_newer_commit", "0") == "1")
+    if cached_avail:
+        try:
+            if not cached_is_newer_commit and parse_semver(APP_VERSION) >= parse_semver(latest_ver):
+                cached_avail = False
+                set_system_config("update_available", "0")
+            elif cached_is_newer_commit:
+                current_commit = get_local_commit()
+                cached_commit = get_system_config("latest_available_commit", "")
+                if current_commit and cached_commit and current_commit == cached_commit and parse_semver(APP_VERSION) >= parse_semver(latest_ver):
+                    cached_avail = False
+                    set_system_config("update_available", "0")
+                    set_system_config("is_newer_commit", "0")
+        except Exception:
+            pass
+
     return dict(
         csrf_token=get_csrf_token(),
         app_version=APP_VERSION,
         current_admin=session.get("admin_user", ""),
         vpn_enabled=(get_system_config("vpn_enabled", "1") == "1"),
-        update_available=(get_system_config("update_available", "0") == "1"),
-        latest_version=get_system_config("latest_available_version", APP_VERSION),
+        update_available=cached_avail,
+        latest_version=latest_ver,
         base_path=request.script_root,
         panel_path=get_system_config("panel_path", ""),
         session_timeout=session_timeout,
@@ -541,13 +560,21 @@ def check_for_updates(force=False):
     cached_commit = get_system_config("latest_available_commit", "")
     cached_is_newer_commit = (get_system_config("is_newer_commit", "0") == "1")
 
-    # If cache says update is available due to newer commit, but local commit is now up to date, clear available flag
-    if cached_avail and cached_is_newer_commit and current_commit and cached_commit:
-        if current_commit == cached_commit and (parse_semver(APP_VERSION) >= parse_semver(cached_ver)):
-            cached_avail = False
-            cached_is_newer_commit = False
-            set_system_config("update_available", "0")
-            set_system_config("is_newer_commit", "0")
+    # If cache says update is available, but local version/commit is now up to date, clear available flag
+    if cached_avail:
+        try:
+            if cached_is_newer_commit:
+                if current_commit and cached_commit and current_commit == cached_commit and (parse_semver(APP_VERSION) >= parse_semver(cached_ver)):
+                    cached_avail = False
+                    cached_is_newer_commit = False
+                    set_system_config("update_available", "0")
+                    set_system_config("is_newer_commit", "0")
+            else:
+                if parse_semver(APP_VERSION) >= parse_semver(cached_ver):
+                    cached_avail = False
+                    set_system_config("update_available", "0")
+        except Exception:
+            pass
 
     if not force and (now - last_check < UPDATE_CACHE_TTL) and last_check > 0:
         return {
@@ -872,6 +899,9 @@ import sys
 sys.path.insert(0, '${{INSTALL_DIR}}/panel')
 import app
 app.init_db()
+app.set_system_config('update_available', '0')
+app.set_system_config('is_newer_commit', '0')
+app.set_system_config('last_update_check', '0')
 "
 
 update_status "running" "nginx" 85 "Verifying web server configuration..."
@@ -2091,7 +2121,6 @@ def format_user_payload(u, online):
         "max_devices": max_dev,
         "note": note,
         "portal_url": f"{get_public_base_url()}/sub?u={quote(str(uname))}",
-        "sub_url": f"{get_public_base_url()}/sub?u={quote(str(uname))}",
         "live_net": live_net
     }
 
@@ -2649,7 +2678,6 @@ def add_user():
                 "password": password,
                 "server": get_server_domain(),
                 "portal_url": f"{get_public_base_url()}/sub?u={quote(str(username))}",
-                "sub_url": f"{get_public_base_url()}/sub?u={quote(str(username))}",
                 "max_traffic": traffic_display,
                 "max_traffic_gb": max_traffic_gb,
                 "expire": expire_display,
@@ -2787,7 +2815,6 @@ def edit_user(user_id):
             "password": new_password,
             "server": get_server_domain(),
             "portal_url": f"{get_public_base_url()}/sub?u={quote(str(user['username']))}",
-            "sub_url": f"{get_public_base_url()}/sub?u={quote(str(user['username']))}",
             "max_traffic": traffic_display,
             "max_traffic_gb": max_traffic_gb,
             "expire": expire_display,
@@ -3154,15 +3181,8 @@ def api_system_update_trigger():
         "message": "Stable update process initiated in background.",
         "current_version": APP_VERSION,
         "target_version": check_info.get("latest_version"),
-        "target_commit": check_info.get("latest_commit"),
-        "status_endpoint": "/api/v1/system/update/status"
+        "target_commit": check_info.get("latest_commit")
     }), 202
-
-@app.route("/api/v1/system/update/status", methods=["GET"])
-@api_auth_required
-def api_system_update_status():
-    status = get_update_status()
-    return jsonify({"success": True, **status})
 
 @app.route("/api/v1/users/<int:user_id>", methods=["GET"])
 @api_auth_required
@@ -3297,29 +3317,6 @@ def public_api_reset_traffic(user_id):
         "success": True,
         "message": f"Traffic usage for user '{user['username']}' has been reset to 0.",
         "user": api_user_payload(updated)
-    })
-
-@app.route("/api/v1/users/check-username", methods=["GET"])
-@app.route("/api/v1/users/check-username/<username>", methods=["GET"])
-@api_auth_required
-def public_api_check_username(username=None):
-    if not username:
-        username = request.args.get("username", "").strip()
-    else:
-        username = str(username).strip()
-    if not username:
-        return api_error("username parameter is required.", 400)
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (username,))
-    existing = cursor.fetchone()
-    conn.close()
-    is_available = existing is None
-    return jsonify({
-        "success": True,
-        "username": username,
-        "available": is_available,
-        "message": "Username is available." if is_available else "Username is already taken."
     })
 
 @app.route("/api/v1/docs")
