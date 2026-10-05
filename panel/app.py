@@ -2520,23 +2520,15 @@ def get_users_api():
 @login_required
 def get_top_network_users():
     try:
-        req_type = request.args.get("type", "total")
         online = get_online_users()
         conn = get_db()
         cursor = conn.cursor()
-        if req_type == "live":
-            cursor.execute("SELECT * FROM users WHERE is_active = 1")
-            rows = cursor.fetchall()
-            conn.close()
-            users = [format_user_payload(dict(r), online) for r in rows if r["username"] in online]
-            users.sort(key=lambda u: (u.get("live_net") or {}).get("speed_bps", 0), reverse=True)
-            users = users[:5]
-        else:
-            cursor.execute("SELECT * FROM users ORDER BY used_traffic_bytes DESC LIMIT 5")
-            rows = cursor.fetchall()
-            conn.close()
-            users = [format_user_payload(dict(r), online) for r in rows]
-
+        cursor.execute("SELECT * FROM users WHERE is_active = 1")
+        rows = cursor.fetchall()
+        conn.close()
+        users = [format_user_payload(dict(r), online) for r in rows if r["username"] in online]
+        users.sort(key=lambda u: (u.get("live_net") or {}).get("speed_bps", 0), reverse=True)
+        users = users[:10]
         return jsonify({"success": True, "users": users})
     except Exception as e:
         print(f"[!] Error in get_top_network_users: {e}", file=sys.stderr)
