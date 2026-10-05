@@ -1502,8 +1502,8 @@
                 const upSpeed = liveNet.speed_up || '0 B/s';
 
                 html += `
-                    <div class="top-user-card top-user-compact" onclick="viewUserFromTopList('${escapeHtml(String(u.id))}')" title="Click to view details">
-                        <span class="top-user-name">${escapeHtml(u.username)}</span>
+                    <div class="top-user-card" onclick="viewUserFromTopList('${escapeHtml(String(u.id))}')" title="Click to view details">
+                        <div class="top-user-name">${escapeHtml(u.username)}</div>
                         <div class="net-speeds top-speeds-compact">
                             <span class="net-badge-down">↓ ${escapeHtml(downSpeed)}</span>
                             <span class="net-badge-up">↑ ${escapeHtml(upSpeed)}</span>

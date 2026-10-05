@@ -3368,16 +3368,19 @@ input.input-error:focus {
     gap: 0.65rem;
     max-height: 440px;
     overflow-y: auto;
-    padding-right: 2px;
+    padding: 6px 8px 6px 6px;
 }
 
 .top-user-card {
     background: var(--bg-surface);
     border: var(--border-width) solid var(--border-dark);
     border-radius: var(--radius-md);
-    padding: 0.75rem 1rem;
+    padding: 0.85rem 1rem;
     box-shadow: var(--shadow-xs);
     cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
     transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 }
 
@@ -3393,28 +3396,20 @@ input.input-error:focus {
     box-shadow: none;
 }
 
-.top-user-compact {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-}
-
-.top-user-compact .top-user-name {
+.top-user-name {
     font-family: var(--font-heading);
     font-weight: 700;
     font-size: 0.95rem;
     color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-    flex: 1;
+    line-height: 1.35;
+    word-break: break-all;
 }
 
-.top-user-compact .net-speeds {
+.top-user-card .net-speeds {
     margin-top: 0;
-    flex-shrink: 0;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
 }
 
 .top-speeds-compact .net-badge-down,
@@ -3439,9 +3434,5 @@ input.input-error:focus {
 @media (max-width: 480px) {
     .live-net-modal-content {
         max-width: 100%;
-    }
-    .top-user-compact {
-        flex-wrap: wrap;
-        gap: 0.5rem;
     }
 }
