@@ -57,7 +57,7 @@ Example response:
 ```json
 {
   "success": true,
-  "version": "1.9.4",
+  "version": "1.9.5",
   "stats": {
     "total_accounts": 11,
     "active_users": 11,
@@ -300,15 +300,15 @@ Example response:
 {
   "success": true,
   "cached": false,
-  "current_version": "1.9.3",
-  "latest_version": "1.9.4",
+  "current_version": "1.9.4",
+  "latest_version": "1.9.5",
   "current_commit": "4928a96",
   "latest_commit": "c3d2e1a",
   "update_available": true,
   "is_newer_commit": true,
-  "release_name": "IKE-UI v1.9.4 Release",
+  "release_name": "IKE-UI v1.9.5 Release",
   "release_notes": "Official stable release notes and fixes.",
-  "html_url": "https://github.com/mehranpng/IKE-UI/releases/tag/v1.9.4",
+  "html_url": "https://github.com/mehranpng/IKE-UI/releases/tag/v1.9.5",
   "last_checked": 1726930000
 }
 ```
@@ -328,8 +328,8 @@ Example response (HTTP 202 Accepted):
 {
   "success": true,
   "message": "Stable update process initiated in background.",
-  "current_version": "1.9.3",
-  "target_version": "1.9.4",
+  "current_version": "1.9.4",
+  "target_version": "1.9.5",
   "target_commit": "c3d2e1a"
 }
 ```

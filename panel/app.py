@@ -67,7 +67,7 @@ def get_persistent_secret_key():
 
 get_secret_key = get_persistent_secret_key
 
-APP_VERSION = "1.9.4"
+APP_VERSION = "1.9.5"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
@@ -2084,9 +2084,14 @@ def format_user_payload(u, online):
                     "bytes_total": format_bytes_val(d_in + d_out)
                 })
 
+        down_rate = spd.get('down_rate', 0)
+        up_rate = spd.get('up_rate', 0)
         live_net = {
             "speed_down": down_spd,
             "speed_up": up_spd,
+            "rate_down": down_rate,
+            "rate_up": up_rate,
+            "speed_bps": down_rate + up_rate,
             "net_rx": down_spd,
             "net_tx": up_spd,
             "bytes_down": format_bytes_val(bytes_out),
@@ -2509,6 +2514,32 @@ def get_users_api():
         })
     except Exception as e:
         print(f"[!] Error in get_users_api: {e}", file=sys.stderr)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/network/top-users", methods=["GET"])
+@login_required
+def get_top_network_users():
+    try:
+        req_type = request.args.get("type", "total")
+        online = get_online_users()
+        conn = get_db()
+        cursor = conn.cursor()
+        if req_type == "live":
+            cursor.execute("SELECT * FROM users WHERE is_active = 1")
+            rows = cursor.fetchall()
+            conn.close()
+            users = [format_user_payload(dict(r), online) for r in rows if r["username"] in online]
+            users.sort(key=lambda u: (u.get("live_net") or {}).get("speed_bps", 0), reverse=True)
+            users = users[:5]
+        else:
+            cursor.execute("SELECT * FROM users ORDER BY used_traffic_bytes DESC LIMIT 5")
+            rows = cursor.fetchall()
+            conn.close()
+            users = [format_user_payload(dict(r), online) for r in rows]
+
+        return jsonify({"success": True, "users": users})
+    except Exception as e:
+        print(f"[!] Error in get_top_network_users: {e}", file=sys.stderr)
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route("/api/stream")

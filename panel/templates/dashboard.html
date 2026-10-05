@@ -120,6 +120,13 @@
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                             Live Network
                         </span>
+                        <button type="button" class="btn-icon btn-info-net" id="btnLiveNetInfo" onclick="openLiveNetModal()" title="Top 5 Traffic Consumers" aria-label="Top 5 Traffic Consumers">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="16" x2="12" y2="12"/>
+                                <line x1="12" y1="8" x2="12.01" y2="8"/>
+                            </svg>
+                        </button>
                     </div>
                     <div class="net-speeds" style="margin-top: 6px;">
                         <span class="net-badge-down" id="sysNetDown">↓ {{ sys.net_rx }}</span>
@@ -365,6 +372,7 @@
                                 <option value="10">10</option>
                                 <option value="30">30</option>
                                 <option value="50">50</option>
+                                <option value="100">100</option>
                             </select>
                             <span>per page</span>
                         </div>
@@ -812,6 +820,53 @@
                     </svg>
                     Edit User
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="liveNetModal" class="modal">
+        <div class="modal-content live-net-modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <div class="info-modal-title-wrap">
+                    <div class="info-user-avatar live-net-modal-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3>Top Traffic Consumers</h3>
+                        <span class="sub-text">Top 5 Live Bandwidth &amp; Consumption</span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" onclick="closeLiveNetModal()" aria-label="Close">&times;</button>
+            </div>
+
+            <div class="modal-body live-net-modal-body">
+                <div class="top-users-tabs">
+                    <button type="button" class="top-tab-btn active" id="tabTopTotal" onclick="switchTopUsersTab('total')">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                        Total Traffic
+                    </button>
+                    <button type="button" class="top-tab-btn" id="tabTopLive" onclick="switchTopUsersTab('live')">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        Live Speed
+                    </button>
+                </div>
+
+                <div id="topUsersList" class="top-users-list">
+                    <div class="top-users-loading">
+                        <div class="table-loader-spinner"></div>
+                        <span>Loading top consumers...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="justify-content: space-between; align-items: center;">
+                <div class="live-net-footer-status">
+                    <span class="badge-pulse"></span>
+                    <span style="font-size: 0.78rem; color: var(--text-muted); font-family: var(--font-heading); font-weight: 700;">Live Updating</span>
+                </div>
+                <button type="button" class="btn btn-secondary" onclick="closeLiveNetModal()">Close</button>
             </div>
         </div>
     </div>
@@ -1399,12 +1454,166 @@
             }
         }
 
+        let isLiveNetModalOpen = false;
+        let activeTopUsersTab = 'total';
+        let lastUsersLive = null;
+
+        function openLiveNetModal() {
+            isLiveNetModalOpen = true;
+            document.getElementById('liveNetModal').style.display = 'flex';
+            document.body.classList.add('modal-open');
+            if (lastUsersLive && Object.keys(lastUsersLive).length > 0) {
+                renderTopUsersModal();
+            } else {
+                fetchTopNetworkUsers();
+            }
+        }
+
+        function closeLiveNetModal() {
+            isLiveNetModalOpen = false;
+            document.getElementById('liveNetModal').style.display = 'none';
+            document.body.classList.remove('modal-open');
+        }
+
+        function switchTopUsersTab(tab) {
+            activeTopUsersTab = tab;
+            const tabTotal = document.getElementById('tabTopTotal');
+            const tabLive = document.getElementById('tabTopLive');
+            if (tabTotal) tabTotal.classList.toggle('active', tab === 'total');
+            if (tabLive) tabLive.classList.toggle('active', tab === 'live');
+            if (lastUsersLive && Object.keys(lastUsersLive).length > 0) {
+                renderTopUsersModal();
+            } else {
+                fetchTopNetworkUsers();
+            }
+        }
+
+        function viewUserFromTopList(userId) {
+            closeLiveNetModal();
+            openUserInfoModal(userId);
+        }
+
+        function renderTopUsersModal() {
+            if (!lastUsersLive) return;
+            const allUsers = Object.values(lastUsersLive);
+            let topList = [];
+            if (activeTopUsersTab === 'live') {
+                topList = allUsers
+                    .filter(u => (u.is_active === 1) && Boolean(u.is_online) && u.live_net)
+                    .sort((a, b) => {
+                        const spdB = (b.live_net && (b.live_net.speed_bps || ((b.live_net.rate_down || 0) + (b.live_net.rate_up || 0)))) || 0;
+                        const spdA = (a.live_net && (a.live_net.speed_bps || ((a.live_net.rate_down || 0) + (a.live_net.rate_up || 0)))) || 0;
+                        if (spdB !== spdA) return spdB - spdA;
+                        return (b.used_traffic_bytes || 0) - (a.used_traffic_bytes || 0);
+                    })
+                    .slice(0, 5);
+            } else {
+                topList = allUsers
+                    .slice()
+                    .sort((a, b) => (b.used_traffic_bytes || 0) - (a.used_traffic_bytes || 0))
+                    .slice(0, 5);
+            }
+            renderTopUsersList(topList);
+        }
+
+        function renderTopUsersList(users) {
+            const listEl = document.getElementById('topUsersList');
+            if (!listEl) return;
+            if (!users || users.length === 0) {
+                listEl.innerHTML = `
+                    <div class="empty-top-users">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.45;">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        <span>${activeTopUsersTab === 'live' ? 'No active users consuming network traffic right now.' : 'No users found.'}</span>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            users.forEach((u, idx) => {
+                const rank = idx + 1;
+                const rankClass = rank === 1 ? 'top-rank-1' : (rank === 2 ? 'top-rank-2' : (rank === 3 ? 'top-rank-3' : 'top-rank-other'));
+                const isOnline = (u.is_active === 1) && Boolean(u.is_online);
+                const maxGb = (u.max_traffic_gb && u.max_traffic_gb > 0) ? u.max_traffic_gb : 0;
+                const maxText = maxGb > 0 ? `${maxGb} GB` : '∞ Unlimited';
+                const pct = maxGb > 0 ? Math.min(100, (u.traffic_percent || 0)) : 0;
+                const barClass = pct > 90 ? 'progress-danger' : (pct > 70 ? 'progress-warning' : '');
+
+                let speedBadge = '';
+                if (isOnline && u.live_net && (u.live_net.speed_down || u.live_net.speed_up)) {
+                    speedBadge = `
+                        <div class="top-user-speeds-row">
+                            <span class="top-stat-label">Live Speed:</span>
+                            <div class="net-speeds top-speeds-compact">
+                                <span class="net-badge-down">↓ ${escapeHtml(u.live_net.speed_down || '0 B/s')}</span>
+                                <span class="net-badge-up">↑ ${escapeHtml(u.live_net.speed_up || '0 B/s')}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <div class="top-user-card" onclick="viewUserFromTopList('${escapeHtml(String(u.id))}')" title="Click to view full user details">
+                        <div class="top-user-header">
+                            <div class="top-user-left">
+                                <span class="top-user-rank ${rankClass}">#${rank}</span>
+                                <span class="top-user-name">${escapeHtml(u.username)}</span>
+                            </div>
+                            <div class="top-user-right">
+                                ${isOnline 
+                                    ? `<span class="badge badge-online"><span class="badge-pulse"></span> Online</span>` 
+                                    : `<span class="badge badge-neutral">Offline</span>`}
+                            </div>
+                        </div>
+                        <div class="top-user-stats">
+                            <div class="top-user-stat-row">
+                                <span class="top-stat-label">Traffic Usage:</span>
+                                <span class="top-stat-val">${escapeHtml(u.used_traffic_formatted || '0 B')} <span class="top-stat-max">/ ${escapeHtml(maxText)}</span></span>
+                            </div>
+                            ${maxGb > 0 ? `
+                            <div class="progress-track" style="margin: 4px 0 2px 0;">
+                                <div class="progress-bar ${barClass}" style="width: ${pct}%;"></div>
+                            </div>` : ''}
+                            ${speedBadge}
+                        </div>
+                    </div>
+                `;
+            });
+
+            listEl.innerHTML = html;
+        }
+
+        async function fetchTopNetworkUsers() {
+            const listEl = document.getElementById('topUsersList');
+            if (!listEl) return;
+            try {
+                const res = await fetch(`${BASE_PATH}/api/network/top-users?type=${encodeURIComponent(activeTopUsersTab)}`);
+                const data = await res.json();
+                if (data && data.success && data.users) {
+                    if (!lastUsersLive) lastUsersLive = {};
+                    data.users.forEach(u => {
+                        lastUsersLive[u.id] = u;
+                    });
+                    renderTopUsersList(data.users);
+                } else {
+                    listEl.innerHTML = `<div class="empty-top-users"><span>${escapeHtml(data?.error || 'Failed to load top users')}</span></div>`;
+                }
+            } catch (err) {
+                listEl.innerHTML = `<div class="empty-top-users"><span>Error connecting to server</span></div>`;
+            }
+        }
+
         window.onclick = function(event) {
             if (event.target == document.getElementById('addModal')) closeAddModal();
             if (event.target == document.getElementById('editModal')) closeEditModal();
             if (event.target == document.getElementById('confirmModal')) closeConfirmModal();
             if (event.target == document.getElementById('vpnDisabledModal')) closeVpnDisabledModal();
             if (event.target == document.getElementById('userInfoModal')) closeUserInfoModal();
+            if (event.target == document.getElementById('liveNetModal')) closeLiveNetModal();
         }
 
         function getUserSubLink(username) {
@@ -1476,7 +1685,7 @@
                 try { saved = localStorage.getItem('ike_users_per_page'); } catch(e) {}
             }
             const val = parseInt(saved);
-            if ([10, 30, 50].includes(val)) {
+            if ([10, 30, 50, 100].includes(val)) {
                 perPage = val;
             } else {
                 perPage = 10;
@@ -1903,6 +2112,13 @@
 
                 if (data.success) {
                     currentUsers = data.users || [];
+                    if (!lastUsersLive) lastUsersLive = {};
+                    currentUsers.forEach(u => {
+                        if (!lastUsersLive[u.id]) lastUsersLive[u.id] = u;
+                    });
+                    if (isLiveNetModalOpen) {
+                        renderTopUsersModal();
+                    }
                     const pagination = data.pagination || {
                         total_items: currentUsers.length,
                         total_pages: 1,
@@ -2299,6 +2515,7 @@
                     }
 
                     if (data.users_live) {
+                        lastUsersLive = data.users_live;
                         if (currentUsers && Array.isArray(currentUsers)) {
                             currentUsers.forEach(u => {
                                 const live = data.users_live[u.id];
@@ -2312,6 +2529,10 @@
                         if (activeInfoUserId && data.users_live[activeInfoUserId]) {
                             activeInfoUserData = data.users_live[activeInfoUserId];
                             updateUserInfoModalContent(data.users_live[activeInfoUserId]);
+                        }
+
+                        if (isLiveNetModalOpen) {
+                            renderTopUsersModal();
                         }
                     }
                 } catch(err) {
@@ -2346,8 +2567,13 @@
             if (!starEl) return;
             const cached = localStorage.getItem('ike_ui_gh_stars');
             const cachedTime = localStorage.getItem('ike_ui_gh_stars_time');
-            if (cached && cachedTime && (Date.now() - parseInt(cachedTime)) < 3600000) {
+            const ONE_DAY_MS = 86400000; // 24 hours
+
+            if (cached) {
                 starEl.textContent = cached;
+            }
+
+            if (cached && cachedTime && (Date.now() - parseInt(cachedTime)) < ONE_DAY_MS) {
                 return;
             }
             fetch('https://api.github.com/repos/mehranpng/IKE-UI')

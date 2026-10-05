@@ -3309,3 +3309,257 @@ input.input-error:focus {
     font-size: 0.76rem;
     color: var(--text-muted);
 }
+
+/* ==========================================================================
+   Live Network Info Button & Top Traffic Modal
+   ========================================================================== */
+
+.btn-info-net {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    padding: 0 !important;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1.5px solid var(--border-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-xs);
+    transition: all 0.12s ease;
+    user-select: none;
+}
+
+.btn-info-net:hover {
+    color: var(--accent-cyan);
+    background: rgba(0, 240, 255, 0.12);
+    border-color: var(--accent-cyan);
+    transform: translate(-1px, -1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-info-net:active {
+    transform: translate(1px, 1px);
+    box-shadow: none;
+}
+
+.live-net-modal-content {
+    max-width: 520px;
+}
+
+.live-net-modal-body {
+    padding: 1.15rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.95rem;
+}
+
+.live-net-modal-icon {
+    color: var(--accent-cyan) !important;
+    background: rgba(0, 240, 255, 0.12) !important;
+    border-color: rgba(0, 240, 255, 0.3) !important;
+}
+
+.top-users-tabs {
+    display: flex;
+    background: var(--bg-main);
+    border: var(--border-width) solid var(--border-dark);
+    border-radius: var(--radius-md);
+    padding: 3px;
+    gap: 4px;
+}
+
+.top-tab-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: var(--font-heading);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    user-select: none;
+}
+
+.top-tab-btn:hover {
+    color: var(--text-primary);
+}
+
+.top-tab-btn.active {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-xs);
+}
+
+.top-users-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    max-height: 420px;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+
+.top-user-card {
+    background: var(--bg-surface);
+    border: var(--border-width) solid var(--border-dark);
+    border-radius: var(--radius-md);
+    padding: 0.85rem 1.05rem;
+    box-shadow: var(--shadow-xs);
+    cursor: pointer;
+    transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.top-user-card:hover {
+    transform: translate(-1.5px, -1.5px);
+    border-color: var(--primary);
+    box-shadow: var(--shadow-sm);
+    background: var(--bg-card-hover);
+}
+
+.top-user-card:active {
+    transform: translate(1px, 1px);
+    box-shadow: none;
+}
+
+.top-user-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.45rem;
+}
+
+.top-user-left {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.top-user-rank {
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 0.72rem;
+    padding: 0.12rem 0.45rem;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    line-height: 1.2;
+}
+
+.top-rank-1 {
+    background: rgba(255, 208, 0, 0.15);
+    color: var(--accent-yellow);
+    border: 1.5px solid var(--accent-yellow);
+}
+
+.top-rank-2 {
+    background: rgba(0, 240, 255, 0.15);
+    color: var(--accent-cyan);
+    border: 1.5px solid var(--accent-cyan);
+}
+
+.top-rank-3 {
+    background: rgba(116, 82, 255, 0.18);
+    color: var(--primary-hover);
+    border: 1.5px solid var(--primary-hover);
+}
+
+.top-rank-other {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    border: 1.5px solid var(--border-subtle);
+}
+
+.top-user-name {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.top-user-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.top-user-stat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.8rem;
+}
+
+.top-stat-label {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.top-stat-val {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--accent-cyan);
+}
+
+.top-stat-max {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.top-user-speeds-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.top-speeds-compact .net-badge-down,
+.top-speeds-compact .net-badge-up {
+    font-size: 0.72rem;
+    padding: 2px 7px;
+}
+
+.top-users-loading,
+.empty-top-users {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2.25rem 1rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    gap: 0.75rem;
+}
+
+.live-net-footer-status {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+@media (max-width: 480px) {
+    .live-net-modal-content {
+        max-width: 100%;
+    }
+    .top-user-header {
+        flex-wrap: wrap;
+    }
+}

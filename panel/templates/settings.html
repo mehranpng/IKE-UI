@@ -1700,8 +1700,13 @@
             if (!starEl) return;
             const cached = localStorage.getItem('ike_ui_gh_stars');
             const cachedTime = localStorage.getItem('ike_ui_gh_stars_time');
-            if (cached && cachedTime && (Date.now() - parseInt(cachedTime)) < 3600000) {
+            const ONE_DAY_MS = 86400000; // 24 hours
+
+            if (cached) {
                 starEl.textContent = cached;
+            }
+
+            if (cached && cachedTime && (Date.now() - parseInt(cachedTime)) < ONE_DAY_MS) {
                 return;
             }
             fetch('https://api.github.com/repos/mehranpng/IKE-UI')
