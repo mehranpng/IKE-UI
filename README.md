@@ -1,8 +1,14 @@
-# IKE-UI
+<p align="center">
+  <img src="assets/logo.png" alt="IKE-UI Logo" width="120" />
+</p>
 
-> IKEv2/IPsec VPN Server & Web Management Panel
+<h1 align="center">IKE-UI</h1>
 
-<p align="left">
+<p align="center">
+  <em>IKEv2/IPsec VPN Server & Web Management Panel</em>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Release-v1.9.5-7452ff?style=flat-square" alt="Version 1.9.5" />
   <img src="https://img.shields.io/badge/VPN-IKEv2%20%2F%20IPsec-blue?style=flat-square" alt="IKEv2 VPN" />
   <img src="https://img.shields.io/badge/SSL-Let's%20Encrypt%20Auto-brightgreen?style=flat-square" alt="Let's Encrypt" />
