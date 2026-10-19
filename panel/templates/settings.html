@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>IKE-UI - Settings</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo/ike-ui.svg') }}">
+    <link rel="alternate icon" href="{{ url_for('static', filename='logo/favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,7 +16,9 @@
     <div class="app-layout">
         <header class="navbar">
             <div class="brand">
-                <h1 class="brand-title">IKE-UI</h1>
+                <a href="{{ url_for('index') }}" class="brand-logo" aria-label="IKE-UI">
+                    <img src="{{ url_for('static', filename='logo/ike-ui.svg') }}" alt="IKE-UI">
+                </a>
                 <span class="brand-badge">v{{ app_version }}</span>
             </div>
 

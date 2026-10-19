@@ -1938,6 +1938,10 @@ def format_last_seen(last_seen_str):
 def get_remaining_days_filter(expire_date_str):
     return calc_remaining_days(expire_date_str)
 
+@app.route("/favicon.ico")
+def favicon():
+    return send_file(os.path.join(BASE_DIR, "static", "logo", "favicon.ico"), mimetype="image/vnd.microsoft.icon")
+
 @app.route("/login", methods=["GET", "POST"])
 @limiter.limit("1/second; 20/minute")
 def login():

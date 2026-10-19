@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>IKE-UI</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo/ike-ui.svg') }}">
+    <link rel="alternate icon" href="{{ url_for('static', filename='logo/favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,7 +16,9 @@
     <div class="app-layout">
         <header class="navbar">
             <div class="brand">
-                <h1 class="brand-title">IKE-UI</h1>
+                <a href="{{ url_for('index') }}" class="brand-logo" aria-label="IKE-UI">
+                    <img src="{{ url_for('static', filename='logo/ike-ui.svg') }}" alt="IKE-UI">
+                </a>
                 <span class="brand-badge">v{{ app_version }}</span>
                 <div id="vpnDisabledBadge" class="service-stopped-badge" style="{% if vpn_enabled %}display: none;{% else %}display: inline-flex;{% endif %}" onclick="openVpnDisabledModal()" title="VPN Service is Disabled - Click for details">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">

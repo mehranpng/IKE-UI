@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>IKE-UI - User Portal</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo/ike-ui.svg') }}">
+    <link rel="alternate icon" href="{{ url_for('static', filename='logo/favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -313,7 +315,9 @@
     <div class="login-body">
         <div class="login-card">
             <div class="login-header">
-                <h2>IKE-UI</h2>
+                <div class="login-brand-logo">
+                    <img src="{{ url_for('static', filename='logo/ike-ui.svg') }}" alt="IKE-UI">
+                </div>
                 <div class="login-version"><span class="brand-badge">Account Portal</span></div>
                 <p>Sign in to view your VPN subscription details and manage your account</p>
             </div>
@@ -431,7 +435,9 @@
     <div class="sub-portal-layout">
         <header class="sub-navbar">
             <div class="sub-brand">
-                <h1 class="brand-title">IKE-UI</h1>
+                <a href="{{ url_for('sub_portal') }}" class="brand-logo" aria-label="IKE-UI">
+                    <img src="{{ url_for('static', filename='logo/ike-ui.svg') }}" alt="IKE-UI">
+                </a>
                 <span class="brand-badge">Portal</span>
             </div>
 

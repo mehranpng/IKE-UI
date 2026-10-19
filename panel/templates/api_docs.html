@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>IKE-UI REST API Documentation</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo/ike-ui.svg') }}">
+    <link rel="alternate icon" href="{{ url_for('static', filename='logo/favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +22,9 @@
                     <line x1="3" y1="18" x2="21" y2="18"></line>
                 </svg>
             </button>
-            <span class="brand-title">IKE-UI</span>
+            <a href="{{ url_for('api_docs') }}" class="brand-logo" aria-label="IKE-UI">
+                <img src="{{ url_for('static', filename='logo/ike-ui.svg') }}" alt="IKE-UI">
+            </a>
             <span class="brand-badge">REST API</span>
         </div>
     </div>

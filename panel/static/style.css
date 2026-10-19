@@ -102,6 +102,33 @@ body.modal-open {
     line-height: 1;
 }
 
+.brand-logo {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+}
+
+.brand-logo img {
+    height: 26px;
+    width: auto;
+    display: block;
+    object-fit: contain;
+}
+
+.login-brand-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+}
+
+.login-brand-logo img {
+    height: 52px;
+    width: auto;
+    display: block;
+    object-fit: contain;
+}
+
 .brand-badge {
     display: inline-flex;
     align-items: center;

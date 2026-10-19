@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>IKE-UI - Login</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo/ike-ui.svg') }}">
+    <link rel="alternate icon" href="{{ url_for('static', filename='logo/favicon.ico') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,7 +14,9 @@
 <body class="login-body">
     <div class="login-card">
         <div class="login-header">
-            <h2>IKE-UI</h2>
+            <div class="login-brand-logo">
+                <img src="{{ url_for('static', filename='logo/ike-ui.svg') }}" alt="IKE-UI">
+            </div>
             <div class="login-version"><span class="brand-badge">v{{ app_version }}</span></div>
             <p>Enter administrator credentials to access the panel</p>
         </div>
