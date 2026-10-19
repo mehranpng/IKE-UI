@@ -24,11 +24,11 @@ It utilizes EAP-MSCHAPv2 authentication, allowing native client connections on i
 ### Preview
 
 <p align="center">
-  <img src="assets/preview-web.png" alt="IKE-UI Web Panel" />
+  <img src="assets/preview-web.png?raw=true" alt="IKE-UI Web Panel" />
 </p>
 
 <p align="center">
-  <img src="assets/preview-cli.png" alt="IKE-UI CLI" />
+  <img src="assets/preview-cli.png?raw=true" alt="IKE-UI CLI" />
 </p>
 
 ---
