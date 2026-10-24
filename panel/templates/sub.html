@@ -370,6 +370,12 @@
             }
         }
 
+        function escapeHtml(str) {
+            return String(str || '').replace(/[&<>"']/g, function(m) {
+                return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];
+            });
+        }
+
         async function handleSubLoginSubmit(e) {
             e.preventDefault();
             const uInput = document.getElementById('subUsername');
@@ -404,7 +410,7 @@
                 if (response.status === 429) {
                     const data = await response.json().catch(() => ({}));
                     const errMsg = data.error || 'Too many login attempts. Please slow down and try again later.';
-                    alertBox.innerHTML = `<div class="alert alert-danger">${errMsg}</div>`;
+                    alertBox.innerHTML = `<div class="alert alert-danger">${escapeHtml(errMsg)}</div>`;
                     return false;
                 }
 
@@ -417,7 +423,7 @@
                 if (res && res.success) {
                     window.location.href = res.redirect || "{{ url_for('sub_portal') }}";
                 } else if (res && res.error) {
-                    alertBox.innerHTML = `<div class="alert alert-danger">${res.error}</div>`;
+                    alertBox.innerHTML = `<div class="alert alert-danger">${escapeHtml(res.error)}</div>`;
                 } else {
                     alertBox.innerHTML = '<div class="alert alert-danger">Invalid username or password!</div>';
                 }
@@ -1030,6 +1036,12 @@
             }
         }
 
+        function escapeHtml(str) {
+            return String(str || '').replace(/[&<>"']/g, function(m) {
+                return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];
+            });
+        }
+
         async function handleSubChangePassword(e) {
             e.preventDefault();
             const form = document.getElementById('changePasswordForm');
@@ -1071,7 +1083,7 @@
                 if (response.status === 429) {
                     const data = await response.json().catch(() => ({}));
                     const errMsg = data.error || 'Too many password change attempts. Please wait a moment and try again.';
-                    alertBox.innerHTML = `<div class="alert alert-danger">${errMsg}</div>`;
+                    alertBox.innerHTML = `<div class="alert alert-danger">${escapeHtml(errMsg)}</div>`;
                     return false;
                 }
 
@@ -1084,7 +1096,7 @@
                 if (res && res.success) {
                     window.location.href = res.redirect || "{{ url_for('sub_portal') }}";
                 } else if (res && res.error) {
-                    alertBox.innerHTML = `<div class="alert alert-danger">${res.error}</div>`;
+                    alertBox.innerHTML = `<div class="alert alert-danger">${escapeHtml(res.error)}</div>`;
                 } else {
                     form.submit();
                 }

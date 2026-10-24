@@ -929,9 +929,10 @@
 
             toast.innerHTML = `
                 <div class="toast-icon">${iconSvg}</div>
-                <div class="toast-content">${message}</div>
+                <div class="toast-content"></div>
                 <button type="button" class="toast-close" onclick="dismissToast(this.parentElement)">&times;</button>
             `;
+            toast.querySelector('.toast-content').textContent = message;
 
             container.appendChild(toast);
 

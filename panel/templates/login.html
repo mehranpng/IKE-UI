@@ -72,6 +72,12 @@
             return true;
         }
 
+        function escapeHtml(str) {
+            return String(str || '').replace(/[&<>"']/g, function(m) {
+                return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];
+            });
+        }
+
         async function handleLoginSubmit(e) {
             e.preventDefault();
             if (!validateLoginForm(e)) return false;
@@ -94,7 +100,7 @@
                 if (response.status === 429) {
                     const data = await response.json().catch(() => ({}));
                     const errMsg = data.error || 'Too many login attempts. Please try again later.';
-                    alertBox.innerHTML = `<div class="alert alert-danger">${errMsg}</div>`;
+                    alertBox.innerHTML = `<div class="alert alert-danger">${escapeHtml(errMsg)}</div>`;
                     return false;
                 }
 
@@ -107,7 +113,7 @@
                 if (res && res.success) {
                     window.location.href = res.redirect || "{{ url_for('dashboard') }}";
                 } else if (res && res.error) {
-                    alertBox.innerHTML = `<div class="alert alert-danger">${res.error}</div>`;
+                    alertBox.innerHTML = `<div class="alert alert-danger">${escapeHtml(res.error)}</div>`;
                 } else if (response.status === 401) {
                     alertBox.innerHTML = `<div class="alert alert-danger">Invalid username or password!</div>`;
                 } else {

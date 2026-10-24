@@ -2,7 +2,7 @@
 set -e
 
 REPO_URL="https://github.com/mehranpng/IKE-UI.git"
-APP_VERSION="1.9.5"
+APP_VERSION="1.9.6"
 INSTALL_DIR="/opt/ike-ui"
 PANEL_DIR="${INSTALL_DIR}/panel"
 DB_DIR="/etc/strongswan-panel"
@@ -899,33 +899,39 @@ RULES_EOF
     "${INSTALL_DIR}/venv/bin/pip" install -r "${INSTALL_DIR}/panel/requirements.txt" >/dev/null
 
     SERVER_DOMAIN="${DOMAIN}" DB_PATH="${DB_PATH}" SECRETS_PATH="${SECRETS_PATH}" SECRET_KEY_PATH="${SECRET_KEY_PATH}" \
+    ADMIN_USER="${ADMIN_USER}" ADMIN_PASS="${ADMIN_PASS}" PANEL_PORT="${PANEL_PORT}" PANEL_PATH="${PANEL_PATH}" \
     "${INSTALL_DIR}/venv/bin/python" -c "
-import sys
+import os, sys
 sys.path.insert(0, '${INSTALL_DIR}/panel')
 import app
 from werkzeug.security import generate_password_hash
 app.init_db()
 conn = app.get_db()
 cursor = conn.cursor()
+admin_user = os.environ.get('ADMIN_USER', 'admin')
+admin_pass = os.environ.get('ADMIN_PASS', '')
+domain = os.environ.get('SERVER_DOMAIN', '')
+panel_port = os.environ.get('PANEL_PORT', '443')
+panel_path = os.environ.get('PANEL_PATH', '')
 cursor.execute('SELECT id FROM admin LIMIT 1')
 row = cursor.fetchone()
 if row:
-    cursor.execute('UPDATE admin SET username = ?, password_hash = ? WHERE id = ?', ('${ADMIN_USER}', generate_password_hash('${ADMIN_PASS}'), row['id']))
+    cursor.execute('UPDATE admin SET username = ?, password_hash = ? WHERE id = ?', (admin_user, generate_password_hash(admin_pass), row['id']))
 else:
-    cursor.execute('INSERT INTO admin (username, password_hash) VALUES (?, ?)', ('${ADMIN_USER}', generate_password_hash('${ADMIN_PASS}')))
+    cursor.execute('INSERT INTO admin (username, password_hash) VALUES (?, ?)', (admin_user, generate_password_hash(admin_pass)))
 
 cursor.execute('''
     INSERT INTO system_config (key, value) VALUES ('server_domain', ?)
     ON CONFLICT(key) DO UPDATE SET value = excluded.value
-''', ('${DOMAIN}',))
+''', (domain,))
 cursor.execute('''
     INSERT INTO system_config (key, value) VALUES ('panel_port', ?)
     ON CONFLICT(key) DO UPDATE SET value = excluded.value
-''', ('${PANEL_PORT}',))
+''', (panel_port,))
 cursor.execute('''
     INSERT INTO system_config (key, value) VALUES ('panel_path', ?)
     ON CONFLICT(key) DO UPDATE SET value = excluded.value
-''', ('${PANEL_PATH}',))
+''', (panel_path,))
 
 conn.commit()
 
@@ -1303,8 +1309,7 @@ RENEW_EOF
     apply_firewall >/dev/null 2>&1 || true
 
     if [ -f "${DB_PATH}" ] && [ -n "$cur_port" ]; then
-        sqlite3 "${DB_PATH}" "INSERT INTO system_config (key, value) VALUES ('panel_port', '${cur_port}') ON CONFLICT(key) DO UPDATE SET value = excluded.value;" 2>/dev/null || \
-        python3 -c "import sqlite3; conn=sqlite3.connect('${DB_PATH}'); cursor=conn.cursor(); cursor.execute(\"INSERT INTO system_config (key, value) VALUES ('panel_port', '${cur_port}') ON CONFLICT(key) DO UPDATE SET value = excluded.value\"); conn.commit(); conn.close()" 2>/dev/null || true
+        DB_PATH="${DB_PATH}" CFG_VAL="${cur_port}" python3 -c "import os, sqlite3; conn=sqlite3.connect(os.environ['DB_PATH']); cursor=conn.cursor(); cursor.execute(\"INSERT INTO system_config (key, value) VALUES ('panel_port', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value\", (os.environ['CFG_VAL'],)); conn.commit(); conn.close()" 2>/dev/null || true
     fi
 
     if [ -d "${DB_DIR}" ]; then
@@ -1440,24 +1445,26 @@ for r in rows:
         echo -e "${RED}[X] Password cannot be empty.${NC}"
         return
     fi
-    "${INSTALL_DIR}/venv/bin/python" -c "
-import sys
+    NEW_USER="${NEW_USER}" NEW_PASS="${NEW_PASS}" "${INSTALL_DIR}/venv/bin/python" -c "
+import os, sys
 sys.path.insert(0, '${INSTALL_DIR}/panel')
 import app
 import datetime
 from werkzeug.security import generate_password_hash
+new_user = os.environ.get('NEW_USER', 'admin')
+new_pass = os.environ.get('NEW_PASS', '')
 conn = app.get_db()
 cursor = conn.cursor()
-cursor.execute('SELECT id FROM admin WHERE username = ?', ('${NEW_USER}',))
+cursor.execute('SELECT id FROM admin WHERE username = ?', (new_user,))
 row = cursor.fetchone()
 if row:
-    cursor.execute('UPDATE admin SET password_hash = ? WHERE id = ?', (generate_password_hash('${NEW_PASS}'), row['id']))
+    cursor.execute('UPDATE admin SET password_hash = ? WHERE id = ?', (generate_password_hash(new_pass), row['id']))
 else:
     now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    cursor.execute('INSERT INTO admin (username, password_hash, created_at) VALUES (?, ?, ?)', ('${NEW_USER}', generate_password_hash('${NEW_PASS}'), now))
+    cursor.execute('INSERT INTO admin (username, password_hash, created_at) VALUES (?, ?, ?)', (new_user, generate_password_hash(new_pass), now))
 conn.commit()
 conn.close()
-print('[+] Administrator credentials for \'${NEW_USER}\' updated successfully.')
+print(f'[+] Administrator credentials for \'{new_user}\' updated successfully.')
 "
 }
 
@@ -1524,8 +1531,7 @@ change_panel_path() {
     systemctl reload nginx
 
     if [ -f "${DB_PATH}" ]; then
-        sqlite3 "${DB_PATH}" "INSERT INTO system_config (key, value) VALUES ('panel_path', '${NEW_PATH}') ON CONFLICT(key) DO UPDATE SET value = excluded.value;" 2>/dev/null || \
-        python3 -c "import sqlite3; conn=sqlite3.connect('${DB_PATH}'); cursor=conn.cursor(); cursor.execute(\"INSERT INTO system_config (key, value) VALUES ('panel_path', '${NEW_PATH}') ON CONFLICT(key) DO UPDATE SET value = excluded.value\"); conn.commit(); conn.close()" 2>/dev/null || true
+        DB_PATH="${DB_PATH}" CFG_VAL="${NEW_PATH}" python3 -c "import os, sqlite3; conn=sqlite3.connect(os.environ['DB_PATH']); cursor=conn.cursor(); cursor.execute(\"INSERT INTO system_config (key, value) VALUES ('panel_path', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value\", (os.environ['CFG_VAL'],)); conn.commit(); conn.close()" 2>/dev/null || true
     fi
 
     local new_path_str=""
@@ -1611,8 +1617,7 @@ change_panel_port() {
     systemctl reload nginx
 
     if [ -f "${DB_PATH}" ]; then
-        sqlite3 "${DB_PATH}" "INSERT INTO system_config (key, value) VALUES ('panel_port', '${NEW_PORT}') ON CONFLICT(key) DO UPDATE SET value = excluded.value;" 2>/dev/null || \
-        python3 -c "import sqlite3; conn=sqlite3.connect('${DB_PATH}'); cursor=conn.cursor(); cursor.execute(\"INSERT INTO system_config (key, value) VALUES ('panel_port', '${NEW_PORT}') ON CONFLICT(key) DO UPDATE SET value = excluded.value\"); conn.commit(); conn.close()" 2>/dev/null || true
+        DB_PATH="${DB_PATH}" CFG_VAL="${NEW_PORT}" python3 -c "import os, sqlite3; conn=sqlite3.connect(os.environ['DB_PATH']); cursor=conn.cursor(); cursor.execute(\"INSERT INTO system_config (key, value) VALUES ('panel_port', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value\", (os.environ['CFG_VAL'],)); conn.commit(); conn.close()" 2>/dev/null || true
     fi
 
     local new_port_str=""
@@ -1775,8 +1780,7 @@ else:
         sed -i "s|Environment=\"SERVER_DOMAIN=.*\"|Environment=\"SERVER_DOMAIN=${NEW_DOMAIN}\"|g" /etc/systemd/system/ike-ui.service
     fi
     if [ -f "${DB_PATH}" ]; then
-        sqlite3 "${DB_PATH}" "INSERT INTO system_config (key, value) VALUES ('server_domain', '${NEW_DOMAIN}') ON CONFLICT(key) DO UPDATE SET value = excluded.value;" 2>/dev/null || \
-        python3 -c "import sqlite3; conn=sqlite3.connect('${DB_PATH}'); cursor=conn.cursor(); cursor.execute(\"INSERT INTO system_config (key, value) VALUES ('server_domain', '${NEW_DOMAIN}') ON CONFLICT(key) DO UPDATE SET value = excluded.value\"); conn.commit(); conn.close()" 2>/dev/null || true
+        DB_PATH="${DB_PATH}" CFG_VAL="${NEW_DOMAIN}" python3 -c "import os, sqlite3; conn=sqlite3.connect(os.environ['DB_PATH']); cursor=conn.cursor(); cursor.execute(\"INSERT INTO system_config (key, value) VALUES ('server_domain', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value\", (os.environ['CFG_VAL'],)); conn.commit(); conn.close()" 2>/dev/null || true
     fi
 
     generate_nginx_config "$NEW_DOMAIN" "$cur_port" "$cur_path"

@@ -825,6 +825,12 @@
         const BASE_PATH = "{{ request.script_root }}";
         const CSRF_TOKEN = "{{ csrf_token }}";
 
+        function escapeHtml(str) {
+            return String(str || '').replace(/[&<>"']/g, function(m) {
+                return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];
+            });
+        }
+
         function showToast(message, type = 'error', duration = 3500) {
             const container = document.getElementById('toastContainer');
             if (!container) return;
@@ -843,7 +849,7 @@
 
             toast.innerHTML = `
                 <div class="toast-icon">${iconSvg}</div>
-                <div class="toast-content">${message}</div>
+                <div class="toast-content">${escapeHtml(message)}</div>
                 <button type="button" class="toast-close" onclick="dismissToast(this.parentElement)">&times;</button>
             `;
 
@@ -1336,7 +1342,7 @@
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--danger); flex-shrink: 0; margin-top: 1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg>
                             <div>
                                 <strong style="color: var(--danger); font-size: 0.85rem; display: block;">Validation Failed</strong>
-                                <span style="font-size: 0.78rem; color: #ffccd1;">${res.error || 'The file is not a valid IKE-UI database.'}</span>
+                                <span style="font-size: 0.78rem; color: #ffccd1;">${escapeHtml(res.error || 'The file is not a valid IKE-UI database.')}</span>
                             </div>
                         </div>
                     `;
@@ -1816,9 +1822,9 @@
                     const titleEl = document.getElementById('updateStatusTitle');
                     if (titleEl) {
                         if (data.is_newer_commit && data.latest_commit) {
-                            titleEl.innerHTML = `New Build Available: <span style="color: var(--accent-yellow, #facc15);">v${data.latest_version} (${data.latest_commit})</span>`;
+                            titleEl.innerHTML = `New Build Available: <span style="color: var(--accent-yellow, #facc15);">v${escapeHtml(data.latest_version)} (${escapeHtml(data.latest_commit)})</span>`;
                         } else {
-                            titleEl.innerHTML = `New Version Available: <span style="color: var(--accent-yellow, #facc15);">v${data.latest_version}</span>`;
+                            titleEl.innerHTML = `New Version Available: <span style="color: var(--accent-yellow, #facc15);">v${escapeHtml(data.latest_version)}</span>`;
                         }
                     }
 
@@ -2056,7 +2062,10 @@
                 attempts++;
                 if (stepText) stepText.textContent = `Reconnecting to panel (attempt ${attempts}/${maxAttempts})...`;
                 try {
-                    const pingResp = await fetch(`${BASE_PATH}/api/v1/ping`, { cache: 'no-store' });
+                    const pingResp = await fetch(`${BASE_PATH}/settings/update/status`, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        cache: 'no-store'
+                    });
                     if (pingResp.ok) {
                         clearInterval(reconnectTimer);
                         if (stepText) stepText.textContent = 'Connected! Finalizing...';

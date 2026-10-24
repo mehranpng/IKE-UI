@@ -31,6 +31,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("DB_PATH", "/etc/strongswan-panel/panel.db")
 SECRETS_PATH = os.environ.get("SECRETS_PATH", "/etc/ipsec.secrets")
 SECRET_KEY_PATH = os.environ.get("SECRET_KEY_PATH", "/etc/strongswan-panel/secret.key")
+CONFIG_DIR = os.path.dirname(DB_PATH) or "/etc/strongswan-panel"
 SERVER_DOMAIN = os.environ.get("SERVER_DOMAIN", "vpn.example.com")
 PANEL_PORT = int(os.environ.get("PANEL_PORT", 8000))
 
@@ -41,8 +42,7 @@ def generate_random_pwd(length=8):
 def get_persistent_secret_key():
     key_candidates = [
         SECRET_KEY_PATH,
-        os.path.join(BASE_DIR, "secret.key"),
-        "/tmp/strongswan-panel.key"
+        os.path.join(BASE_DIR, "secret.key")
     ]
     for path in key_candidates:
         try:
@@ -67,7 +67,7 @@ def get_persistent_secret_key():
 
 get_secret_key = get_persistent_secret_key
 
-APP_VERSION = "1.9.5"
+APP_VERSION = "1.9.6"
 
 SUB_SESSION_LIFETIME = 3 * 24 * 3600
 
@@ -94,14 +94,17 @@ app.config["SESSION_COOKIE_SECURE"] = True
 
 def get_client_ip():
     if has_request_context():
-        # Prefer X-Real-IP set by trusted local reverse proxy (Nginx $remote_addr)
         x_real_ip = request.headers.get("X-Real-IP")
         if x_real_ip:
             return x_real_ip.strip().split(",")[0].strip()
-        cf_ip = request.headers.get("CF-Connecting-IP")
-        if cf_ip:
-            return cf_ip.strip().split(",")[0].strip()
     return get_remote_address()
+
+@app.after_request
+def set_security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    return response
 
 limiter = Limiter(
     get_client_ip,
@@ -503,10 +506,11 @@ def format_duration_minutes(minutes):
         parts.append(f"{m}m")
     return " ".join(parts)
 
-UPDATE_CACHE_TTL = 6 * 3600  # 6 hours
+UPDATE_CACHE_TTL = 6 * 3600
 GITHUB_REPO = "mehranpng/IKE-UI"
-UPDATE_LOCK_FILE = "/tmp/ike_ui_update.lock"
-UPDATE_STATUS_FILE = "/tmp/ike_ui_update_status.json"
+UPDATE_LOCK_FILE = os.path.join(CONFIG_DIR, "ike_ui_update.lock")
+UPDATE_STATUS_FILE = os.path.join(CONFIG_DIR, "ike_ui_update_status.json")
+UPDATE_SCRIPT_FILE = os.path.join(CONFIG_DIR, "ike_ui_updater.sh")
 UPDATE_LOG_FILE = "/opt/ike-ui/update.log"
 
 def parse_semver(ver_str):
@@ -783,7 +787,7 @@ def get_update_status():
         }
 
     log_content = ""
-    log_path = UPDATE_LOG_FILE if os.path.exists(UPDATE_LOG_FILE) else "/tmp/ike_ui_update.log"
+    log_path = UPDATE_LOG_FILE if os.path.exists(UPDATE_LOG_FILE) else os.path.join(CONFIG_DIR, "update.log")
     if os.path.exists(log_path):
         try:
             with open(log_path, "r", errors="ignore") as f:
@@ -828,7 +832,7 @@ INSTALL_DIR="{install_dir}"
 LOG_FILE="{UPDATE_LOG_FILE}"
 
 mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
-touch "$LOG_FILE" 2>/dev/null || LOG_FILE="/tmp/ike_ui_update.log"
+touch "$LOG_FILE" 2>/dev/null || LOG_FILE="{os.path.join(CONFIG_DIR, 'update.log')}"
 
 exec >> "$LOG_FILE" 2>&1
 
@@ -931,10 +935,11 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl restart --no-block ike-ui.service 2>/dev/null || systemctl restart --no-block ikev2-panel.service 2>/dev/null || true
 fi
 """
-    script_path = "/tmp/ike_ui_updater.sh"
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    script_path = UPDATE_SCRIPT_FILE
     with open(script_path, "w") as sf:
         sf.write(updater_script)
-    os.chmod(script_path, 0o755)
+    os.chmod(script_path, 0o700)
 
     with open(UPDATE_STATUS_FILE, "w") as st:
         json.dump({
@@ -945,6 +950,7 @@ fi
             "error": None,
             "timestamp": int(time.time())
         }, st)
+    os.chmod(UPDATE_STATUS_FILE, 0o600)
 
     launched = False
     if os.path.exists("/run/systemd/system"):
@@ -2277,9 +2283,7 @@ def sub_change_password():
 
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json or request.accept_mimetypes.best == "application/json"
 
-    candidate_csrf = request.form.get("csrf_token") or request.headers.get("X-CSRFToken") or request.headers.get("X-CSRF-Token")
-    session_csrf = session.get("csrf_token")
-    if not session_csrf or not candidate_csrf or not hmac.compare_digest(session_csrf, candidate_csrf):
+    if not verify_admin_csrf():
         msg = "Invalid or missing CSRF token. Please refresh the page and try again."
         if is_ajax:
             return jsonify({"success": False, "error": msg}), 403
@@ -2319,7 +2323,7 @@ def sub_change_password():
         flash(msg, "danger")
         return redirect(url_for("sub_portal"))
 
-    if any(c in new_pass for c in ('\r', '\n', '\0', '<', '>')):
+    if any(c in new_pass for c in ('\r', '\n', '\0', '<', '>', '"', "'", '`', '$', '\\')):
         msg = "Password contains invalid characters!"
         if is_ajax:
             return jsonify({"success": False, "error": msg}), 400
@@ -2644,8 +2648,8 @@ def add_user():
         flash("Username and password are required!", "danger")
         return redirect(url_for("dashboard"))
 
-    if any(c in username for c in ('\r', '\n', '\0')) or any(c in password for c in ('\r', '\n', '\0')):
-        msg = "Username and password cannot contain newline or null characters!"
+    if any(c in username for c in ('\r', '\n', '\0')) or any(c in password for c in ('\r', '\n', '\0', '<', '>', '"', "'", '`', '$', '\\')):
+        msg = "Username and password contain invalid characters!"
         if is_ajax:
             return jsonify({"success": False, "error": msg}), 400
         flash(msg, "danger")
@@ -2747,9 +2751,9 @@ def edit_user(user_id):
     raw_pwd = request.form.get("password", "").strip()
 
     if change_pwd and raw_pwd:
-        if any(c in raw_pwd for c in ('\r', '\n', '\0')):
+        if any(c in raw_pwd for c in ('\r', '\n', '\0', '<', '>', '"', "'", '`', '$', '\\')):
             conn.close()
-            msg = "Password cannot contain newline or null characters!"
+            msg = "Password contains invalid characters!"
             if is_ajax:
                 return jsonify({"success": False, "error": msg}), 400
             flash(msg, "danger")
@@ -3028,16 +3032,12 @@ def get_api_request_stats():
         "current_month": 0,
     }
 
-@app.before_request
-def track_api_request():
-    if request.path.startswith("/api/v1") and not request.path.startswith("/api/v1/docs"):
-        record_api_request()
-
 def api_error(message, status=400):
     return jsonify({"success": False, "error": message}), status
 
 def api_auth_required(f):
     @wraps(f)
+    @limiter.limit("30/second; 600/minute")
     def decorated_function(*args, **kwargs):
         candidate = request.headers.get("X-API-Key", "").strip()
         if not candidate:
@@ -3046,6 +3046,8 @@ def api_auth_required(f):
                 candidate = auth[7:].strip()
         if not api_key_is_valid(candidate):
             return api_error("A valid API key is required.", 401)
+        if request.path.startswith("/api/v1") and not request.path.startswith("/api/v1/docs"):
+            record_api_request()
         return f(*args, **kwargs)
     return decorated_function
 
@@ -3105,8 +3107,8 @@ def api_parse_user_values(data, existing=None):
         raise ValueError("username and password are required.")
     if existing and "password" in data and not password:
         raise ValueError("password cannot be empty.")
-    if any(c in username for c in ('\r', '\n', '\0')) or any(c in password for c in ('\r', '\n', '\0')):
-        raise ValueError("username and password cannot contain newline or null characters.")
+    if any(c in username for c in ('\r', '\n', '\0')) or any(c in password for c in ('\r', '\n', '\0', '<', '>', '"', "'", '`', '$', '\\')):
+        raise ValueError("username and password contain invalid characters.")
     if not re.match(r'^[a-zA-Z0-9_@.-]+$', username):
         raise ValueError("username can only contain alphanumeric characters, _, -, ., and @.")
     if len(username) > 128 or len(password) > 256:
@@ -3285,6 +3287,10 @@ def public_api_change_password(user_id):
         return api_error("User not found.", 404)
     if not password:
         return api_error("password is required.")
+    if len(password) > 256:
+        return api_error("password is too long.")
+    if any(c in password for c in ('\r', '\n', '\0', '<', '>', '"', "'", '`', '$', '\\')):
+        return api_error("password contains invalid characters.")
     conn = get_db()
     conn.execute("UPDATE users SET password = ? WHERE id = ?", (password, user_id))
     conn.commit()
@@ -3832,6 +3838,15 @@ def add_admin():
         flash("Username and password are required!", "danger")
         return redirect(url_for("settings"))
 
+    username = re.sub(r'[^a-zA-Z0-9_@.-]', '', username)
+    if len(username) < 3 or len(username) > 64:
+        flash("Username must be between 3 and 64 characters!", "danger")
+        return redirect(url_for("settings"))
+
+    if len(password) < 4:
+        flash("Password must be at least 4 characters long!", "danger")
+        return redirect(url_for("settings"))
+
     if password != confirm:
         flash("Passwords do not match!", "danger")
         return redirect(url_for("settings"))
@@ -3847,8 +3862,8 @@ def add_admin():
         flash(f"Administrator '{username}' created successfully!", "success")
     except sqlite3.IntegrityError:
         flash(f"Administrator with username '{username}' already exists!", "danger")
-    except Exception as e:
-        flash(f"Error creating admin: {e}", "danger")
+    except Exception:
+        flash("Error creating administrator.", "danger")
 
     return redirect(url_for("settings"))
 
@@ -3860,6 +3875,10 @@ def edit_admin_password(admin_id):
 
     if not new_password or new_password != confirm:
         flash("Passwords are empty or do not match!", "danger")
+        return redirect(url_for("settings"))
+
+    if len(new_password) < 4:
+        flash("Password must be at least 4 characters long!", "danger")
         return redirect(url_for("settings"))
 
     conn = get_db()
@@ -3935,6 +3954,7 @@ def validate_uploaded_sqlite_db(file_bytes, filename=None):
         test_conn = sqlite3.connect(tmp_path, timeout=5.0)
         test_conn.row_factory = sqlite3.Row
         test_cur = test_conn.cursor()
+        test_cur.execute("PRAGMA trusted_schema = OFF;")
 
         test_cur.execute("PRAGMA integrity_check;")
         check_row = test_cur.fetchone()
@@ -4033,7 +4053,8 @@ def validate_uploaded_sqlite_db(file_bytes, filename=None):
         return True, None, parsed_users
 
     except Exception as e:
-        return False, f"Failed to parse database file: {e}", []
+        print(f"[!] Error validating uploaded database: {e}", file=sys.stderr)
+        return False, "Failed to parse database file. The uploaded file may be corrupted or invalid.", []
     finally:
         if tmp_path and os.path.exists(tmp_path):
             try:
