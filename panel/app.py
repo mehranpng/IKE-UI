@@ -394,6 +394,43 @@ def set_system_config(key, value):
     except Exception as e:
         print(f"[!] Error setting config {key}: {e}", file=sys.stderr)
 
+def get_all_time_traffic_bytes(cursor=None):
+    close_conn = False
+    if cursor is None:
+        conn = get_db()
+        cursor = conn.cursor()
+        close_conn = True
+    try:
+        cursor.execute("SELECT value FROM system_config WHERE key = 'all_time_traffic_bytes'")
+        row = cursor.fetchone()
+        try:
+            all_time = int(row["value"]) if (row and row["value"] is not None) else 0
+        except (ValueError, TypeError):
+            all_time = 0
+
+        cursor.execute("SELECT COALESCE(SUM(used_traffic_bytes), 0) as current_sum FROM users")
+        c_row = cursor.fetchone()
+        current_sum = int(c_row["current_sum"]) if (c_row and c_row["current_sum"]) else 0
+
+        if current_sum > all_time:
+            all_time = current_sum
+            cursor.execute("""
+                INSERT INTO system_config (key, value) VALUES ('all_time_traffic_bytes', ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """, (str(all_time),))
+            if close_conn:
+                cursor.connection.commit()
+        return all_time
+    except Exception as e:
+        print(f"[!] Error fetching all_time_traffic_bytes: {e}", file=sys.stderr)
+        return 0
+    finally:
+        if close_conn:
+            try:
+                cursor.connection.close()
+            except Exception:
+                pass
+
 def get_server_domain():
     domain = get_system_config("server_domain", "").strip()
     if domain and domain != "vpn.example.com":
@@ -1095,6 +1132,17 @@ def init_db():
                 ON CONFLICT(key) DO UPDATE SET value = excluded.value
             """, (extracted_port,))
 
+        cursor.execute("SELECT value FROM system_config WHERE key = 'all_time_traffic_bytes'")
+        at_row = cursor.fetchone()
+        if not at_row or not at_row["value"]:
+            cursor.execute("SELECT COALESCE(SUM(used_traffic_bytes), 0) as current_sum FROM users")
+            c_row = cursor.fetchone()
+            cur_sum = c_row["current_sum"] if (c_row and c_row["current_sum"]) else 0
+            cursor.execute("""
+                INSERT INTO system_config (key, value) VALUES ('all_time_traffic_bytes', ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """, (str(cur_sum),))
+
         conn.commit()
         conn.close()
     except Exception as e:
@@ -1656,6 +1704,13 @@ def accounting_daemon():
                     SET used_traffic_bytes = COALESCE(used_traffic_bytes, 0) + ?
                     WHERE username = ?
                 """, (delta, username))
+
+            total_delta = sum(user_deltas.values())
+            if total_delta > 0:
+                cursor.execute("""
+                    INSERT INTO system_config (key, value) VALUES ('all_time_traffic_bytes', ?)
+                    ON CONFLICT(key) DO UPDATE SET value = CAST((CAST(COALESCE(system_config.value, '0') AS INTEGER) + excluded.value) AS TEXT)
+                """, (total_delta,))
 
             if len(last_seen_child_bytes) > 100:
                 cutoff_ts = now_ts - 86400
@@ -2377,6 +2432,7 @@ def dashboard():
         cursor.execute("SELECT COALESCE(SUM(used_traffic_bytes), 0) as total_traf FROM users")
         traf_row = cursor.fetchone()
         total_traffic_bytes = traf_row["total_traf"] if traf_row else 0
+        all_time_traffic_bytes = get_all_time_traffic_bytes(cursor)
 
         cursor.execute("SELECT * FROM users ORDER BY id DESC LIMIT 10")
         initial_users = cursor.fetchall()
@@ -2385,6 +2441,7 @@ def dashboard():
         total_users = 0
         active_users = 0
         total_traffic_bytes = 0
+        all_time_traffic_bytes = 0
         initial_users = []
         print(f"[!] Error fetching dashboard data: {e}", file=sys.stderr)
 
@@ -2416,6 +2473,7 @@ def dashboard():
                            active_users=active_users,
                            online_count=online_count,
                            total_traffic_bytes=total_traffic_bytes,
+                           all_time_traffic_bytes=all_time_traffic_bytes,
                            sys=sys_metrics,
                            server_domain=get_server_domain(),
                            portal_base_url=get_public_base_url())
@@ -2576,6 +2634,7 @@ def sse_stream():
 
                 cursor.execute("SELECT * FROM users ORDER BY id DESC")
                 all_users = cursor.fetchall()
+                all_time_traffic_bytes = get_all_time_traffic_bytes(cursor)
                 conn.close()
 
                 total_users = len(all_users)
@@ -2595,7 +2654,8 @@ def sse_stream():
                         "total_users": total_users,
                         "active_users": active_users,
                         "online_count": online_count,
-                        "total_traffic": format_bytes_val(total_traffic_bytes)
+                        "total_traffic": format_bytes_val(total_traffic_bytes),
+                        "all_time_traffic": format_bytes_val(all_time_traffic_bytes)
                     },
                     "sys": sys_metrics,
                     "vpn_enabled": (get_system_config("vpn_enabled", "1") == "1"),
@@ -3149,6 +3209,7 @@ def public_api_stats():
     row = cursor.fetchone()
     cursor.execute("SELECT username FROM users WHERE is_active = 1")
     active_usernames = {user["username"] for user in cursor.fetchall()}
+    all_time_consumption_bytes = get_all_time_traffic_bytes(cursor)
     conn.close()
 
     online = get_online_users()
@@ -3163,7 +3224,9 @@ def public_api_stats():
             "active_users": int(row["active_users"] or 0) if row else 0,
             "online_users": online_users,
             "total_consumption_bytes": total_consumption_bytes,
-            "total_consumption": format_bytes_val(total_consumption_bytes)
+            "total_consumption": format_bytes_val(total_consumption_bytes),
+            "all_time_consumption_bytes": all_time_consumption_bytes,
+            "all_time_consumption": format_bytes_val(all_time_consumption_bytes)
         },
         "system": get_system_metrics()
     })

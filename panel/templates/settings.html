@@ -1710,13 +1710,13 @@
             if (!starEl) return;
             const cached = localStorage.getItem('ike_ui_gh_stars');
             const cachedTime = localStorage.getItem('ike_ui_gh_stars_time');
-            const ONE_DAY_MS = 86400000; // 24 hours
+            const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
             if (cached) {
                 starEl.textContent = cached;
             }
 
-            if (cached && cachedTime && (Date.now() - parseInt(cachedTime)) < ONE_DAY_MS) {
+            if (cached && cachedTime && (Date.now() - parseInt(cachedTime, 10)) < CACHE_TTL_MS) {
                 return;
             }
             fetch('https://api.github.com/repos/mehranpng/IKE-UI')
@@ -2086,6 +2086,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchGitHubStars();
+            setInterval(fetchGitHubStars, 5 * 60 * 1000);
             setupDropzone();
             updateLastCheckedDisplay();
         });

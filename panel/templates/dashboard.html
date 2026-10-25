@@ -195,6 +195,7 @@
                     <div class="stat-details">
                         <h3>Total Consumption</h3>
                         <div class="stat-number" id="statTotalTraffic">{{ total_traffic_bytes | format_bytes }}</div>
+                        <div class="stat-sub" title="All-time total consumption (never resets)">All-time: <span id="statAllTimeTraffic">{{ all_time_traffic_bytes | format_bytes }}</span></div>
                     </div>
                 </div>
             </div>
@@ -2376,11 +2377,13 @@
                         const elActive = document.getElementById('statActiveUsers');
                         const elOnline = document.getElementById('statOnlineCount');
                         const elTraf = document.getElementById('statTotalTraffic');
+                        const elAllTime = document.getElementById('statAllTimeTraffic');
 
                         if (elTotal) elTotal.innerText = data.stats.total_users;
                         if (elActive) elActive.innerText = data.stats.active_users;
                         if (elOnline) elOnline.innerHTML = `<span class="badge-pulse"></span> ` + data.stats.online_count;
-                        if (elTraf) elTraf.innerText = data.stats.total_traffic;
+                        if (elTraf && data.stats.total_traffic) elTraf.innerText = data.stats.total_traffic;
+                        if (elAllTime && data.stats.all_time_traffic) elAllTime.innerText = data.stats.all_time_traffic;
                     }
 
                     if (typeof data.vpn_enabled !== 'undefined') {
@@ -2498,13 +2501,13 @@
             if (!starEl) return;
             const cached = localStorage.getItem('ike_ui_gh_stars');
             const cachedTime = localStorage.getItem('ike_ui_gh_stars_time');
-            const ONE_DAY_MS = 86400000; // 24 hours
+            const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
             if (cached) {
                 starEl.textContent = cached;
             }
 
-            if (cached && cachedTime && (Date.now() - parseInt(cachedTime)) < ONE_DAY_MS) {
+            if (cached && cachedTime && (Date.now() - parseInt(cachedTime, 10)) < CACHE_TTL_MS) {
                 return;
             }
             fetch('https://api.github.com/repos/mehranpng/IKE-UI')
@@ -2529,6 +2532,7 @@
             fetchUsers(false);
             initSSE();
             fetchGitHubStars();
+            setInterval(fetchGitHubStars, 5 * 60 * 1000);
 
             ['addMaxTraffic', 'addDurationDays', 'editMaxTraffic', 'editDurationDays'].forEach(id => {
                 const el = document.getElementById(id);

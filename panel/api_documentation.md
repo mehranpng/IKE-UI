@@ -63,7 +63,9 @@ Example response:
     "active_users": 11,
     "online_users": 6,
     "total_consumption_bytes": 604752870113,
-    "total_consumption": "563.22 GB"
+    "total_consumption": "563.22 GB",
+    "all_time_consumption_bytes": 820384729100,
+    "all_time_consumption": "764.04 GB"
   },
   "system": {
     "cpu_percent": 0,

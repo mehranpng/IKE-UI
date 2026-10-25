@@ -1169,6 +1169,22 @@ body.modal-open {
     gap: 0.4rem;
 }
 
+.stat-sub {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    letter-spacing: 0.01em;
+}
+
+.stat-sub span {
+    color: var(--text-secondary);
+    font-weight: 700;
+}
+
 .badge-pulse {
     width: 12px;
     height: 12px;
